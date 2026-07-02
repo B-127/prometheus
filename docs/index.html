@@ -17,70 +17,89 @@
   base-uri 'none';
   form-action 'none';
   frame-ancestors 'none';">
-<title>Sri Lanka CCPI Dashboard</title>
+<title>Prometheus · Sri Lanka CCPI</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.5.0/echarts.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <style>
-  :root{--bg:#0d1b2a;--ink:#1b263b;--muted:#5b6b80;--line:#e4e9f0;--accent:#1f6feb;
-        --soft:#f4f7fb;--good:#1a8a55;--warn:#c0561a;--bad:#c0392b;--overlap:#f0b34a}
-  *{box-sizing:border-box}
-  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--ink);background:var(--soft)}
-  header{background:var(--bg);color:#fff;padding:16px 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
-  header h1{font-size:18px;margin:0;font-weight:650}
-  header .sub{font-size:12px;color:#9fb3cc;margin-top:2px}
-  .pill{font-size:12px;background:#13314f;color:#cfe0f3;border-radius:999px;padding:6px 12px;display:flex;gap:14px;flex-wrap:wrap}
-  .pill b{color:#fff}
-  .wrap{max-width:1180px;margin:0 auto;padding:18px 24px 56px}
-  .banner{font-size:13px;padding:10px 14px;border-radius:10px;margin-bottom:16px;display:none}
-  .banner.warn{background:#fff4e6;border:1px solid #f2c79a;color:#8a4b13}
-  .banner.err{background:#fdecea;border:1px solid #f1b0a8;color:#922}
-  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
-  .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px}
-  .card .label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
-  .card .val{font-size:27px;font-weight:700;margin-top:5px;line-height:1}
-  .card .meta{font-size:12px;color:var(--muted);margin-top:5px}
-  .panel{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:14px}
-  .panel h2{font-size:14px;margin:0 0 2px;font-weight:650}
-  .panel .hint{font-size:12px;color:var(--muted);margin:0 0 10px}
-  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-  .grid2.wide{grid-template-columns:1.5fr 1fr}
-  .chart{width:100%;height:340px}.chart.sm{height:320px}.chart.tall{height:420px}
-  .ctrls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px}
-  select,.seg button,input[type=number],button.btn{font-size:12px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);padding:6px 10px}
-  button.btn{cursor:pointer}button.btn:hover{border-color:var(--accent);color:var(--accent)}
-  .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
-  .seg button{border:0;border-radius:0;color:var(--muted);cursor:pointer}
-  .seg button.on{background:var(--accent);color:#fff}
-  .legend{font-size:12px;color:var(--muted);display:flex;gap:16px;flex-wrap:wrap;margin-top:8px}
-  .legend span{display:flex;align-items:center;gap:6px}
-  .sw{width:11px;height:11px;border-radius:3px;display:inline-block}
-  table{width:100%;border-collapse:collapse;font-size:13px}
-  th,td{text-align:right;padding:6px 9px;border-bottom:1px solid var(--line)}
-  th:first-child,td:first-child{text-align:left}
-  thead th{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px}
-  .chk{display:flex;flex-wrap:wrap;gap:6px 14px;max-height:120px;overflow:auto;margin-bottom:8px}
-  .chk label{font-size:12px;display:flex;align-items:center;gap:5px;color:var(--ink)}
-  .simrow{display:grid;grid-template-columns:1fr 90px;gap:8px;align-items:center;font-size:12px;margin-bottom:5px}
-  .simrow input{width:100%;text-align:right}
-  .stat{display:flex;gap:22px;flex-wrap:wrap;margin:6px 0 2px}
-  .stat div span{display:block}.stat .n{font-size:22px;font-weight:700}.stat .l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
-  footer{max-width:1180px;margin:0 auto;padding:0 24px 40px;color:var(--muted);font-size:12px;line-height:1.6}
-  @media(max-width:860px){.kpis{grid-template-columns:repeat(2,1fr)}.grid2,.grid2.wide{grid-template-columns:1fr}}
-  @media print{header .pill,.ctrls,.exportbar,#banner{display:none!important}
-    .panel{break-inside:avoid;border-color:#ccc}body{background:#fff}}
+:root{
+ --ink:#2d2d2a;--teal:#3f5e5a;--fern:#4e9a6b;--deep:#2f6242;--tint:#e7f2ea;
+ --mut:#74786f;--muted:#74786f;--rule:#e7e4dd;--grid:#eeece6;--base:#d9d6ce;
+ --good:#2f6242;--warn:#8a5a2b;--bad:#9a3b2f;--accent:#4e9a6b;--overlap:#3f5e5a;
+ --serif:Georgia,"Times New Roman",serif;--sans:"Helvetica Neue",Arial,system-ui,sans-serif}
+*{box-sizing:border-box}
+body{margin:0;background:#fff;color:var(--ink);font-family:var(--sans);font-feature-settings:"tnum" 1}
+header{background:#fff;max-width:1180px;margin:0 auto;padding:22px 24px 0;display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px}
+.mast{display:flex;align-items:center;gap:13px}
+.mast .block{width:9px;height:34px;background:var(--fern);border-radius:1px;flex:none}
+.wordmark{font-family:var(--serif);font-size:32px;font-weight:700;letter-spacing:-.5px;line-height:1}
+.tag{font-size:11px;letter-spacing:2.5px;text-transform:uppercase;color:var(--mut);margin-top:6px}
+.meta{font-size:11px;color:var(--mut);letter-spacing:.4px;display:flex;gap:16px;flex-wrap:wrap;text-align:right}
+.meta b{color:var(--ink);font-weight:600}
+.kicker{max-width:1180px;margin:14px auto 0;padding:12px 24px 0;display:flex;align-items:center;gap:9px;font-size:10.5px;letter-spacing:2px;text-transform:uppercase;color:var(--teal);border-top:1px solid var(--rule)}
+.kicker .dot{width:6px;height:6px;border-radius:50%;background:var(--fern)}
+.wrap{max-width:1180px;margin:0 auto;padding:14px 24px 60px}
+.banner{font-size:13px;padding:10px 14px;border-radius:8px;margin:12px 0 4px;display:none}
+.banner.warn{background:#fbf3e6;border:1px solid #e6d3ad;color:#7a5a1e}
+.banner.err{background:#fbecea;border:1px solid #e8bcb6;color:#8f3123}
+.exportbar{justify-content:flex-end}
+.ctrls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:12px 0 6px}
+.btn,select,.seg button{font-family:var(--sans);font-size:12px;color:var(--ink);background:#fff;border:1px solid var(--rule);border-radius:7px;padding:6px 11px}
+.btn{cursor:pointer}
+.btn:hover,select:hover{border-color:var(--fern);color:var(--deep)}
+.seg{display:inline-flex;border:1px solid var(--rule);border-radius:7px;overflow:hidden}
+.seg button{border:0;border-radius:0;color:var(--mut);cursor:pointer}
+.seg button.on{background:var(--fern);color:#fff}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:22px;margin:16px 0 4px}
+.card{border-left:2px solid var(--rule);padding:2px 0 2px 13px}
+.kpis .card:nth-child(2){border-left-color:var(--fern)}
+.card .label{font-size:11px;color:var(--mut);letter-spacing:.4px}
+.card .val{font-family:var(--serif);font-size:30px;font-weight:700;line-height:1.15;margin-top:2px}
+.kpis .card:nth-child(2) .val{color:var(--deep)}
+.card .meta{font-size:11px;color:var(--mut);margin-top:3px;text-align:left;display:block}
+.panel{background:#fff;border:1px solid var(--rule);border-radius:12px;padding:16px 18px;margin:14px 0}
+.panel h2{font-family:var(--serif);font-size:18px;margin:0 0 2px;font-weight:700}
+.panel .hint,.hint{font-size:12px;color:var(--mut);margin:0 0 10px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid2.wide{grid-template-columns:1.5fr 1fr}
+.chart{width:100%;height:340px}.chart.sm{height:320px}.chart.tall{height:420px}
+.legend{font-size:12px;color:var(--mut);display:flex;gap:16px;flex-wrap:wrap;margin-top:8px}
+.legend span{display:flex;align-items:center;gap:6px}
+.sw{width:11px;height:11px;border-radius:3px;display:inline-block}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:right;padding:6px 9px;border-bottom:1px solid var(--rule)}
+th:first-child,td:first-child{text-align:left}
+td{font-variant-numeric:tabular-nums}
+thead th{color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.5px;font-weight:600}
+.chk{display:flex;flex-wrap:wrap;gap:6px 14px;max-height:120px;overflow:auto;margin-bottom:8px}
+.chk label{font-size:12px;display:flex;align-items:center;gap:5px}
+.simrow{display:grid;grid-template-columns:1fr 90px;gap:8px;align-items:center;font-size:12px;margin-bottom:5px}
+.simrow input{width:100%;text-align:right}
+.stat{display:flex;gap:22px;flex-wrap:wrap;margin:6px 0 2px}
+.stat div span{display:block}
+.stat .n{font-family:var(--serif);font-size:22px;font-weight:700}
+.stat .l{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px}
+@media(max-width:860px){.kpis{grid-template-columns:repeat(2,1fr)}.grid2,.grid2.wide{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+@media print{.exportbar,.ctrls,#banner{display:none!important}.panel{break-inside:avoid;border-color:#ccc}}
 </style>
 </head>
 <body>
 <header>
-  <div><h1>Sri Lanka — Colombo Consumer Price Index</h1>
-    <div class="sub">Read directly from the workbook · base-year-spliced continuous series</div></div>
-  <div class="pill">
+  <div class="mast">
+    <span class="block"></span>
+    <div>
+      <div class="wordmark">Prometheus</div>
+      <div class="tag">Sri Lanka price intelligence</div>
+    </div>
+  </div>
+  <div class="meta">
     <span>Latest <b id="fMonth">—</b></span>
     <span>Updated <b id="fUpdated">—</b></span>
     <span>Rows <b id="fRows">—</b></span>
-    <span>Overlap months <b id="fOverlap">—</b></span>
+    <span>Overlap <b id="fOverlap">—</b></span>
   </div>
 </header>
+<div class="kicker"><span class="dot"></span>Consumer prices · CCPI · 2021=100</div>
 
 <div class="wrap">
   <div class="banner warn" id="banner"></div>

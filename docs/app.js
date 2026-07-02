@@ -87,7 +87,7 @@ function renderKpis(){
   const ma=toNum(last["CCPI 12M Moving Avg Inflation"]), cyoy=toNum(last["CCPI Core YoY Inflation"]);
   const kyoy=document.getElementById("kYoY");
   kyoy.textContent=yoy==null?"—":fmtPct(yoy*100);
-  kyoy.style.color=yoy==null?"":(yoy<0?"var(--good)":yoy>0.08?"var(--bad)":"var(--warn)");
+  kyoy.style.color=yoy==null?"":"var(--deep)";
   set("kMA","12M avg "+(ma==null?"—":fmtPct(ma*100)));
   set("kMoM",mom==null?"—":fmtPct(mom*100));
   set("kCore",toNum(last["CCPI Core Index"])!=null?toNum(last["CCPI Core Index"]).toFixed(1):"—");
@@ -122,14 +122,14 @@ function drawTrend(){
   if(STATE.base==="__spliced__") areas=overlapBands();
   const isArea=STATE.ctype==="area", isBar=STATE.ctype==="bar";
   CH.trend.setOption({grid:{left:52,right:16,top:16,bottom:28},tooltip:{trigger:"axis"},
-    xAxis:{type:"category",data:xs,axisLabel:{fontSize:10,color:"#7a869a"}},
-    yAxis:{type:"value",scale:true,splitLine:{lineStyle:{color:"#eef2f7"}},axisLabel:{fontSize:10,color:"#7a869a"}},
+    xAxis:{type:"category",data:xs,axisLabel:{fontSize:10,color:"#74786f"}},
+    yAxis:{type:"value",scale:true,splitLine:{lineStyle:{color:"#eeece6"}},axisLabel:{fontSize:10,color:"#74786f"}},
     series:[{type:isBar?"bar":"line",data:ys,smooth:!isBar,showSymbol:false,sampling:"lttb",
-      lineStyle:{width:2.2,color:"#1f6feb"},itemStyle:{color:"#1f6feb"},
-      areaStyle:(isArea?{color:"rgba(31,111,235,.10)"}:null),
-      markLine:{symbol:"none",silent:true,lineStyle:{color:"#b0b8c4",type:"dashed"},
+      lineStyle:{width:2.2,color:"#4e9a6b"},itemStyle:{color:"#4e9a6b"},
+      areaStyle:(isArea?{color:"#e7f2ea"}:null),
+      markLine:{symbol:"none",silent:true,lineStyle:{color:"#b9bbb5",type:"dashed"},
         label:{show:false},data:marks},
-      markArea:{silent:true,itemStyle:{color:"rgba(240,179,74,.22)"},
+      markArea:{silent:true,itemStyle:{color:"rgba(63,94,90,.14)"},
         label:{show:false},data:areas}}]},true);
 }
 
@@ -160,10 +160,10 @@ function drawCompare(){
     series.push({name:g,type:"line",showSymbol:false,smooth:true,sampling:"lttb",data});
   });
   const xs=[...xset].sort();
-  CH.compare.setOption({grid:{left:52,right:16,top:24,bottom:28},tooltip:{trigger:"axis"},
+  CH.compare.setOption({color:["#4e9a6b","#3f5e5a","#2d2d2a","#8a5a2b","#7aa88c","#2f6242","#b06a35"],grid:{left:52,right:16,top:24,bottom:28},tooltip:{trigger:"axis"},
     legend:{type:"scroll",top:0,textStyle:{fontSize:10}},
-    xAxis:{type:"category",data:xs,axisLabel:{fontSize:10,color:"#7a869a"}},
-    yAxis:{type:"value",scale:true,splitLine:{lineStyle:{color:"#eef2f7"}},axisLabel:{fontSize:10,color:"#7a869a"}},
+    xAxis:{type:"category",data:xs,axisLabel:{fontSize:10,color:"#74786f"}},
+    yAxis:{type:"value",scale:true,splitLine:{lineStyle:{color:"#eeece6"}},axisLabel:{fontSize:10,color:"#74786f"}},
     series},true);
 }
 
@@ -179,10 +179,10 @@ function drawHeat(){
     if(r.Group in gi && k in mi && v!=null){ data.push([mi[k],gi[r.Group],+v.toFixed(1)]); vmax=Math.max(vmax,Math.abs(v)); }});
   CH.heat.setOption({grid:{left:8,right:16,top:8,bottom:56,containLabel:true},
     tooltip:{position:"top",formatter:p=>`${groups[p.value[1]]}<br/>${months[p.value[0]]}: ${p.value[2]}%`},
-    xAxis:{type:"category",data:months,axisLabel:{fontSize:9,color:"#7a869a",rotate:60}},
+    xAxis:{type:"category",data:months,axisLabel:{fontSize:9,color:"#74786f",rotate:60}},
     yAxis:{type:"category",data:groups,axisLabel:{fontSize:9,color:"#5b6b80",width:140,overflow:"truncate"}},
     visualMap:{min:-vmax,max:vmax,calculable:true,orient:"horizontal",left:"center",bottom:6,
-      inRange:{color:["#1a8a55","#f4f7fb","#c0392b"]},textStyle:{fontSize:10}},
+      inRange:{color:["#3f5e5a","#eef1ee","#2f6242"]},textStyle:{fontSize:10}},
     series:[{type:"heatmap",data,progressive:1000,itemStyle:{borderColor:"#fff",borderWidth:.5}}]},true);
 }
 
@@ -205,10 +205,10 @@ function drawDrivers(){
     `Approx contribution = (weight ÷ Σweight) × Y-o-Y. Sum ≈ ${sum.toFixed(2)}% vs headline ${head==null?"—":head.toFixed(1)+"%"}.`;
   CH.drivers.setOption({grid:{left:8,right:26,top:8,bottom:8,containLabel:true},
     tooltip:{trigger:"axis",axisPointer:{type:"shadow"},valueFormatter:v=>v+" pp"},
-    xAxis:{type:"value",axisLabel:{fontSize:10,color:"#7a869a"},splitLine:{lineStyle:{color:"#eef2f7"}}},
+    xAxis:{type:"value",axisLabel:{fontSize:10,color:"#74786f"},splitLine:{lineStyle:{color:"#eeece6"}}},
     yAxis:{type:"category",data:arr.map(d=>d.name),axisLabel:{fontSize:10,color:"#5b6b80",width:150,overflow:"truncate"}},
     series:[{type:"bar",data:arr.map(d=>+d.c.toFixed(3)),barWidth:"62%",
-      itemStyle:{color:p=>p.value<0?"#1a8a55":"#c0561a",borderRadius:[0,4,4,0]}}]},true);
+      itemStyle:{color:p=>p.value<0?"#3f5e5a":"#4e9a6b",borderRadius:[0,4,4,0]}}]},true);
 }
 
 /* ------------------------------ scenario ------------------------------ */
@@ -272,10 +272,10 @@ function drawCats(){
     .map(r=>({name:r.Group,val:toNum(r[col])})).sort((a,b)=>a.val-b.val);
   CH.cats.setOption({grid:{left:8,right:26,top:8,bottom:8,containLabel:true},
     tooltip:{trigger:"axis",axisPointer:{type:"shadow"}},
-    xAxis:{type:"value",axisLabel:{fontSize:10,color:"#7a869a"},splitLine:{lineStyle:{color:"#eef2f7"}}},
+    xAxis:{type:"value",axisLabel:{fontSize:10,color:"#74786f"},splitLine:{lineStyle:{color:"#eeece6"}}},
     yAxis:{type:"category",data:data.map(d=>d.name),axisLabel:{fontSize:10,color:"#5b6b80",width:150,overflow:"truncate"}},
     series:[{type:"bar",data:data.map(d=>+d.val.toFixed(2)),barWidth:"62%",
-      itemStyle:{color:STATE.catView==="yoy"?"#c0561a":"#1f6feb",borderRadius:[0,4,4,0]}}]},true);
+      itemStyle:{color:STATE.catView==="yoy"?"#3f5e5a":"#4e9a6b",borderRadius:[0,4,4,0]}}]},true);
 }
 function fillGroups(){
   const sel=document.getElementById("groupSel"); if(sel.dataset.filled) return;
@@ -287,10 +287,10 @@ function drawGroup(){
   const g=document.getElementById("groupSel").value; if(!g) return;
   const s=groupSeries(g);
   CH.group.setOption({grid:{left:48,right:16,top:14,bottom:26},tooltip:{trigger:"axis"},
-    xAxis:{type:"category",data:s.map(x=>x.key),axisLabel:{fontSize:10,color:"#7a869a"}},
-    yAxis:{type:"value",scale:true,splitLine:{lineStyle:{color:"#eef2f7"}},axisLabel:{fontSize:10,color:"#7a869a"}},
+    xAxis:{type:"category",data:s.map(x=>x.key),axisLabel:{fontSize:10,color:"#74786f"}},
+    yAxis:{type:"value",scale:true,splitLine:{lineStyle:{color:"#eeece6"}},axisLabel:{fontSize:10,color:"#74786f"}},
     series:[{type:"line",data:s.map(x=>+x.val.toFixed(1)),smooth:true,showSymbol:false,sampling:"lttb",
-      lineStyle:{width:2,color:"#1a8a55"},areaStyle:{color:"rgba(26,138,85,.07)"}}]},true);
+      lineStyle:{width:2,color:"#4e9a6b"},areaStyle:{color:"rgba(78,154,107,.10)"}}]},true);
 }
 function drawTable(){
   const ov=overlapMonths(ccpiPoints("CCPI Index"));
