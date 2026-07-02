@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'self';
+  script-src 'self' https://cdnjs.cloudflare.com;
+  style-src 'self' 'unsafe-inline';
+  img-src 'self' data: blob:;
+  connect-src 'self';
+  font-src 'self';
+  object-src 'none';
+  base-uri 'none';
+  form-action 'none';
+  frame-ancestors 'none';">
+<title>Sri Lanka CCPI Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.5.0/echarts.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<style>
+  :root{--bg:#0d1b2a;--ink:#1b263b;--muted:#5b6b80;--line:#e4e9f0;--accent:#1f6feb;
+        --soft:#f4f7fb;--good:#1a8a55;--warn:#c0561a;--bad:#c0392b;--overlap:#f0b34a}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--ink);background:var(--soft)}
+  header{background:var(--bg);color:#fff;padding:14px 24px}
+  header h1{font-size:18px;margin:0;font-weight:650}
+  header .sub{font-size:12px;color:#9fb3cc;margin-top:2px}
+  .topbar{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:12px}
+  .topbar .grp{display:flex;gap:6px;align-items:center;font-size:12px;color:#cfe0f3}
+  .topbar select{font-size:12px;border:1px solid #274763;border-radius:8px;background:#0f2740;color:#eaf2fb;padding:5px 8px}
+  .pill{font-size:12px;color:#9fb3cc;display:flex;gap:14px;flex-wrap:wrap;margin-left:auto}
+  .pill b{color:#fff}
+  .seg{display:inline-flex;border:1px solid #274763;border-radius:8px;overflow:hidden}
+  .seg button{border:0;background:#0f2740;color:#9fb3cc;font-size:12px;padding:5px 10px;cursor:pointer}
+  .seg button.on{background:var(--accent);color:#fff}
+  .tabs{display:flex;gap:4px;flex-wrap:wrap;background:#0f2740;padding:0 24px}
+  .tabs button{border:0;background:transparent;color:#9fb3cc;font-size:13px;padding:11px 14px;cursor:pointer;border-bottom:3px solid transparent}
+  .tabs button.on{color:#fff;border-bottom-color:var(--accent)}
+  .wrap{max-width:1180px;margin:0 auto;padding:18px 24px 56px}
+  .banner{font-size:13px;padding:10px 14px;border-radius:10px;margin-bottom:16px;display:none}
+  .banner.warn{background:#fff4e6;border:1px solid #f2c79a;color:#8a4b13}
+  .banner.err{background:#fdecea;border:1px solid #f1b0a8;color:#922}
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+  .card .label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
+  .card .val{font-size:27px;font-weight:700;margin-top:5px;line-height:1}
+  .card .meta{font-size:12px;color:var(--muted);margin-top:5px}
+  .panel{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:14px}
+  .ph{display:flex;align-items:center;gap:8px}
+  .ph h2{font-size:14px;margin:0;font-weight:650}
+  .info{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;
+        background:#eef2f7;color:#5b6b80;font-size:11px;font-style:italic;cursor:help;flex:none}
+  .hint{font-size:12px;color:var(--muted);margin:4px 0 10px}
+  .take{font-size:12px;color:var(--ink);margin:8px 0 0;padding:8px 10px;background:var(--soft);border-radius:8px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .grid2.wide{grid-template-columns:1.5fr 1fr}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+  .chart{width:100%;height:340px}.chart.sm{height:300px}.chart.tall{height:420px}
+  .ctrls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px}
+  select,.seg2 button,input[type=number],input[type=text],button.btn{font-size:12px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);padding:6px 10px}
+  button.btn{cursor:pointer}button.btn:hover{border-color:var(--accent);color:var(--accent)}
+  .seg2{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .seg2 button{border:0;border-radius:0;color:var(--muted);cursor:pointer}
+  .seg2 button.on{background:var(--accent);color:#fff}
+  .legend{font-size:12px;color:var(--muted);display:flex;gap:16px;flex-wrap:wrap;margin-top:8px}
+  .legend span{display:flex;align-items:center;gap:6px}.sw{width:11px;height:11px;border-radius:3px;display:inline-block}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:right;padding:6px 9px;border-bottom:1px solid var(--line)}
+  th:first-child,td:first-child{text-align:left}
+  thead th{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+  .chk{display:flex;flex-wrap:wrap;gap:6px 14px;max-height:120px;overflow:auto;margin-bottom:8px}
+  .chk label{font-size:12px;display:flex;align-items:center;gap:5px}
+  .simrow{display:grid;grid-template-columns:1fr 90px;gap:8px;align-items:center;font-size:12px;margin-bottom:5px}
+  .simrow input{width:100%;text-align:right}
+  .stat{display:flex;gap:22px;flex-wrap:wrap;margin:6px 0 2px}
+  .stat div span{display:block}.stat .n{font-size:22px;font-weight:700}.stat .l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+  .tabpage{display:none}.tabpage.on{display:block}
+  footer{max-width:1180px;margin:0 auto;padding:0 24px 40px;color:var(--muted);font-size:12px;line-height:1.6}
+  @media(max-width:860px){.kpis,.grid2,.grid2.wide,.grid3{grid-template-columns:1fr}}
+  @media print{.tabs,.topbar,.ctrls,.exportbar,#banner{display:none!important}.tabpage{display:block!important}
+    .panel{break-inside:avoid;border-color:#ccc}body{background:#fff}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Sri Lanka — Colombo Consumer Price Index</h1>
+  <div class="sub">Read directly from the workbook · base-year-spliced continuous series · all statistics computed in-browser</div>
+  <div class="topbar">
+    <span class="grp">From <select id="fromSel"></select></span>
+    <span class="grp">To <select id="toSel"></select></span>
+    <span class="grp">Series
+      <span class="seg" id="segMeasure"><button data-m="head" class="on">Headline</button><button data-m="core">Core</button></span></span>
+    <span class="pill">
+      <span>Latest <b id="fMonth">—</b></span><span>Updated <b id="fUpdated">—</b></span>
+      <span>Rows <b id="fRows">—</b></span><span>Overlap <b id="fOverlap">—</b></span>
+    </span>
+  </div>
+</header>
+
+<nav class="tabs" id="tabs">
+  <button data-tab="overview" class="on">Overview</button>
+  <button data-tab="momentum">Momentum &amp; smoothing</button>
+  <button data-tab="underlying">Underlying inflation</button>
+  <button data-tab="breadth">Breadth &amp; distribution</button>
+  <button data-tab="base">Base effects &amp; context</button>
+  <button data-tab="compare">Compare &amp; alerts</button>
+</nav>
+
+<div class="wrap">
+  <div class="banner warn" id="banner"></div>
+
+  <!-- ================= OVERVIEW ================= -->
+  <section class="tabpage on" data-page="overview">
+    <div class="exportbar ctrls" style="justify-content:flex-end">
+      <button class="btn" id="expCsv">Export CSV</button><button class="btn" id="expXlsx">Export Excel</button>
+      <button class="btn" id="expPng">Chart PNG</button><button class="btn" id="expPrint">Print / PDF</button>
+    </div>
+    <div class="kpis">
+      <div class="card"><div class="label">CCPI Index</div><div class="val" id="kIndex">—</div><div class="meta" id="kBase">2021=100</div></div>
+      <div class="card"><div class="label">Inflation Y-o-Y</div><div class="val" id="kYoY">—</div><div class="meta" id="kMA">12M avg —</div></div>
+      <div class="card"><div class="label">Month-on-month</div><div class="val" id="kMoM">—</div><div class="meta">headline</div></div>
+      <div class="card"><div class="label">Core Index</div><div class="val" id="kCore">—</div><div class="meta" id="kCoreYoY">core Y-o-Y —</div></div>
+    </div>
+    <div class="panel">
+      <div class="ctrls"><div class="ph"><h2>CCPI trend</h2><span class="info" title="The price index over time. Different base years are rescaled onto the latest base into one continuous series. Dashed = base change; amber band = a month present under more than one base.">i</span></div>
+        <span class="seg2" id="segType" style="margin-left:auto"><button data-t="line" class="on">Line</button><button data-t="bar">Bar</button><button data-t="area">Area</button></span>
+        <select id="baseSel"></select></div>
+      <div id="trend" class="chart"></div>
+      <div class="legend"><span><span class="sw" style="background:var(--accent)"></span>Spliced continuous</span>
+        <span><span class="sw" style="background:#b0b8c4"></span>Base change</span>
+        <span><span class="sw" style="background:var(--overlap)"></span>Multi-base overlap</span></div>
+    </div>
+    <div class="grid2 wide">
+      <div class="panel"><div class="ph"><h2>Inflation drivers — latest month</h2><span class="info" title="Approximate contribution of each group to headline Y-o-Y = (group weight ÷ total weight) × group Y-o-Y. Bars sum to roughly the headline rate.">i</span></div>
+        <p class="hint" id="drvHint"></p><div id="drivers" class="chart sm"></div></div>
+      <div class="panel"><div class="ctrls"><div class="ph"><h2>Category breakdown</h2><span class="info" title="Each group's latest value. Aggregates (All Items, Non Food) are excluded so components aren't double-counted.">i</span></div>
+        <span class="seg2" id="segCat" style="margin-left:auto"><button data-v="index" class="on">Index</button><button data-v="yoy">Y-o-Y %</button></span></div>
+        <p class="hint" id="catHint"></p><div id="cats" class="chart sm"></div></div>
+    </div>
+    <div class="panel"><div class="ph"><h2>Data table — continuous CCPI index</h2><span class="info" title="One row per month; the base each point came from is shown. Overlap months collapse to the newest base.">i</span></div>
+      <div style="max-height:300px;overflow:auto"><table id="tbl">
+        <thead><tr><th>Month</th><th>Spliced index</th><th>Source base</th><th>Overlap?</th></tr></thead><tbody></tbody></table></div></div>
+  </section>
+
+  <!-- ================= MOMENTUM & SMOOTHING ================= -->
+  <section class="tabpage" data-page="momentum">
+    <div class="panel"><div class="ph"><h2>Momentum — annualized pace</h2><span class="info" title="Recent monthly change scaled to a yearly rate: (Iₜ/Iₜ₋ₖ)^(12/k) − 1. 3-month and 6-month pace turn sooner than the 12-month rate. NOT seasonally adjusted (that arrives in Phase 2), so short windows are noisy.">i</span></div>
+      <p class="hint">1-month (noisy), 3-month and 6-month annualized, vs the 12-month Y-o-Y. Not seasonally adjusted.</p>
+      <div id="chMom" class="chart"></div><p class="take" id="chMom_t"></p></div>
+    <div class="panel"><div class="ph"><h2>Momentum gap</h2><span class="info" title="3-month annualized pace minus the 12-month Y-o-Y. Positive = inflation accelerating; negative = cooling.">i</span></div>
+      <div id="chGap" class="chart sm"></div><p class="take" id="chGap_t"></p></div>
+    <div class="grid2">
+      <div class="panel"><div class="ph"><h2>Smoothing — moving averages &amp; EWMA</h2><span class="info" title="Trailing averages of Y-o-Y (3/6/12 months) plus an exponentially-weighted average that reacts faster to recent months. Cuts monthly noise to reveal the trend.">i</span></div>
+        <div id="chSmooth" class="chart sm"></div><p class="take" id="chSmooth_t"></p></div>
+      <div class="panel"><div class="ph"><h2>Rolling volatility</h2><span class="info" title="Rolling 12-month standard deviation of month-on-month inflation — how unstable prices have been recently.">i</span></div>
+        <div id="chVol" class="chart sm"></div><p class="take" id="chVol_t"></p></div>
+    </div>
+  </section>
+
+  <!-- ================= UNDERLYING ================= -->
+  <section class="tabpage" data-page="underlying">
+    <div class="panel"><div class="stat">
+      <div><span class="n" id="uHead">—</span><span class="l">Headline Y-o-Y</span></div>
+      <div><span class="n" id="uTrim">—</span><span class="l">Trimmed mean</span></div>
+      <div><span class="n" id="uMed">—</span><span class="l">Weighted median</span></div>
+      <div><span class="n" id="uGap">—</span><span class="l">Headline − core</span></div></div>
+      <p class="hint">Latest month. Underlying measures strip out extreme categories to show the durable trend.</p></div>
+    <div class="panel"><div class="ph"><h2>Underlying inflation over time</h2><span class="info" title="Trimmed mean (drop the most extreme categories by weight, average the rest) and weighted median (the group at the 50th percentile of weight). Both resist one-off spikes better than the headline.">i</span></div>
+      <div id="chUnder" class="chart"></div><p class="take" id="chUnder_t"></p></div>
+    <div class="panel"><div class="ph"><h2>Headline minus core</h2><span class="info" title="Headline Y-o-Y minus core Y-o-Y — how much volatile food/energy is adding to (or subtracting from) the headline rate.">i</span></div>
+      <div id="chHC" class="chart sm"></div><p class="take" id="chHC_t"></p></div>
+  </section>
+
+  <!-- ================= BREADTH ================= -->
+  <section class="tabpage" data-page="breadth">
+    <div class="grid3">
+      <div class="panel"><div class="ph"><h2>Diffusion</h2><span class="info" title="Weighted share of the basket with rising prices this month (centered at 50). Above 50 = increases are broad-based.">i</span></div>
+        <div id="chDiff" class="chart sm"></div><p class="take" id="chDiff_t"></p></div>
+      <div class="panel"><div class="ph"><h2>Dispersion</h2><span class="info" title="Weighted standard deviation of category Y-o-Y around the mean. Wider spread often signals supply shocks hitting some categories far more than others.">i</span></div>
+        <div id="chDisp" class="chart sm"></div><p class="take" id="chDisp_t"></p></div>
+      <div class="panel"><div class="ph"><h2>Skewness</h2><span class="info" title="Lopsidedness of category price changes. Positive = a few large increases pulling the average up.">i</span></div>
+        <div id="chSkew" class="chart sm"></div><p class="take" id="chSkew_t"></p></div>
+    </div>
+    <div class="panel"><div class="ctrls"><div class="ph"><h2>Inflation heatmap</h2><span class="info" title="Group × month intensity (last 36 months). Red = rising faster, green = falling.">i</span></div>
+      <span class="seg2" id="segHeat" style="margin-left:auto"><button data-h="yoy" class="on">Y-o-Y %</button><button data-h="mom">MoM %</button></span></div>
+      <div id="heat" class="chart tall"></div></div>
+  </section>
+
+  <!-- ================= BASE EFFECTS & CONTEXT ================= -->
+  <section class="tabpage" data-page="base">
+    <div class="panel"><div class="ph"><h2>Base-effect decomposition</h2><span class="info" title="Each month's change in the Y-o-Y rate ≈ this month's price move minus the year-ago month's move (which drops out of the 12-month window). Shows whether the headline moved because of new price action or a base effect.">i</span></div>
+      <div id="chBase" class="chart"></div><p class="take" id="chBase_t"></p></div>
+    <div class="grid2">
+      <div class="panel"><div class="ph"><h2>Statistical carryover</h2><span class="info" title="The annual-average inflation the year would still print if the index simply stayed flat from the latest month. A model-free year-end anchor.">i</span></div>
+        <div class="stat"><div><span class="n" id="cCarry">—</span><span class="l">Current-year carryover</span></div>
+          <div><span class="n" id="cDouble">—</span><span class="l">Doubling time (yrs)</span></div></div>
+        <div id="chCarry" class="chart sm"></div><p class="take" id="chCarry_t"></p></div>
+      <div class="panel"><div class="ph"><h2>Purchasing-power calculator</h2><span class="info" title="Cumulative price change between two months using the continuous spliced index: what one rupee then is worth now.">i</span></div>
+        <div class="ctrls"><span class="grp" style="color:var(--muted);font-size:12px">From <select id="ppFrom"></select></span>
+          <span class="grp" style="color:var(--muted);font-size:12px">To <select id="ppTo"></select></span></div>
+        <div class="stat"><div><span class="n" id="ppCum">—</span><span class="l">Cumulative inflation</span></div>
+          <div><span class="n" id="ppRupee">—</span><span class="l">Rs.100 → today</span></div>
+          <div><span class="n" id="ppAnn">—</span><span class="l">Avg annual</span></div></div>
+        <p class="take" id="pp_t"></p></div>
+    </div>
+    <div class="panel"><div class="ph"><h2>Scenario simulation</h2><span class="info" title="Apply hypothetical % changes to group indices; All Items is recomputed by weight. Assumes fixed weights and no substitution — hypothetical, not a forecast.">i</span></div>
+      <div class="stat"><div><span class="n" id="simBase">—</span><span class="l">Baseline index</span></div>
+        <div><span class="n" id="simNew">—</span><span class="l">Simulated</span></div>
+        <div><span class="n" id="simDelta">—</span><span class="l">Change</span></div></div>
+      <div id="simRows" style="max-height:220px;overflow:auto;margin-top:8px"></div>
+      <button class="btn" id="simReset" style="margin-top:8px">Reset</button></div>
+  </section>
+
+  <!-- ================= COMPARE & ALERTS ================= -->
+  <section class="tabpage" data-page="compare">
+    <div class="panel"><div class="ctrls"><div class="ph"><h2>Compare groups</h2><span class="info" title="Overlay the spliced continuous series for any groups you tick.">i</span></div>
+      <span class="seg2" id="segCmp" style="margin-left:auto"><button data-v="index" class="on">Index</button><button data-v="yoy">Y-o-Y %</button></span></div>
+      <div class="chk" id="cmpChk"></div><div id="compare" class="chart"></div></div>
+    <div class="grid2 wide">
+      <div class="panel"><div class="ctrls"><div class="ph"><h2>Sub-group trend</h2><span class="info" title="Spliced continuous index for one chosen group.">i</span></div>
+        <select id="groupSel" style="margin-left:auto;max-width:230px"></select></div><div id="group" class="chart sm"></div></div>
+      <div class="panel"><div class="ph"><h2>Anomaly detection</h2><span class="info" title="Robust flags on month-on-month moves (median ± MAD, |z|>3.5) plus missing-month gaps. Flags for review, not corrections.">i</span></div>
+        <div style="max-height:260px;overflow:auto"><table id="anom">
+          <thead><tr><th>Month</th><th>MoM %</th><th>Robust z</th><th>Flag</th></tr></thead><tbody></tbody></table></div></div>
+    </div>
+  </section>
+</div>
+
+<footer>
+  Source: Department of Census and Statistics, Sri Lanka (CCPI). Unofficial dashboard. Index numbers under different base
+  years are not directly comparable; the continuous series is ratio-spliced with base changes and multi-base overlaps
+  labelled. Momentum figures are not seasonally adjusted; underlying/breadth measures assume base-period weights.
+  All computation happens in your browser from the workbook — nothing is uploaded.
+</footer>
+
+<script src="app.js" defer></script>
+</body>
+</html>
