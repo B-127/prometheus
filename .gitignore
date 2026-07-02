@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+*.lock
+*.tmp
+tests/samples/
+# keep backups out of git history (they are local safety copies):
+backups/
