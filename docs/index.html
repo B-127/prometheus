@@ -68,6 +68,12 @@
   @media(max-width:860px){.kpis{grid-template-columns:repeat(2,1fr)}.grid2,.grid2.wide{grid-template-columns:1fr}}
   @media print{header .pill,.ctrls,.exportbar,#banner{display:none!important}
     .panel{break-inside:avoid;border-color:#ccc}body{background:#fff}}
+  .kpicap{font-size:12px;color:var(--muted);margin:2px 0 6px;letter-spacing:.2px}
+  .kpicap b{color:var(--ink)}
+  .ctrls.range{margin:2px 0 0;gap:6px}
+  .ctrls.range .rlab{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+  .ctrls.range .rto{font-size:11px;color:var(--muted)}
+  .ctrls.range select{max-width:120px}
 </style>
 </head>
 <body>
@@ -92,6 +98,7 @@
     <button class="btn" id="expPrint">Print / PDF</button>
   </div>
 
+  <div class="kpicap">Topline figures for <b id="kpiMonth">—</b></div>
   <div class="kpis">
     <div class="card"><div class="label">CCPI Index</div><div class="val" id="kIndex">—</div><div class="meta" id="kBase">2021=100</div></div>
     <div class="card"><div class="label">Inflation Y-o-Y</div><div class="val" id="kYoY">—</div><div class="meta" id="kMA">12M avg —</div></div>
@@ -103,11 +110,12 @@
     <div class="ctrls">
       <h2 style="margin:0">CCPI trend</h2>
       <div class="seg" id="segMeasure" style="margin-left:auto">
-        <button data-m="index" class="on">Index</button><button data-m="yoy">Inflation %</button></div>
+        <button data-m="index" class="on">Index</button><button data-m="yoy">Y-o-Y</button><button data-m="mom">M-o-M</button><button data-m="ytd">YTD</button></div>
       <div class="seg" id="segCore"><button data-c="head" class="on">Headline</button><button data-c="core">Core</button></div>
       <div class="seg" id="segType"><button data-t="line" class="on">Line</button><button data-t="bar">Bar</button><button data-t="area">Area</button></div>
       <select id="baseSel"></select>
     </div>
+    <div class="ctrls range"><span class="rlab">Range</span><select id="trendFrom"></select><span class="rto">to</span><select id="trendTo"></select></div>
     <p class="hint">Continuous series rescaled into the latest base (2021=100). Dashed = base change; amber band = multi-base overlap month.</p>
     <div id="trend" class="chart"></div>
     <div class="legend">
@@ -119,7 +127,8 @@
 
   <div class="panel">
     <div class="ctrls"><h2 style="margin:0">Compare groups</h2>
-      <div class="seg" id="segCmp" style="margin-left:auto"><button data-v="index" class="on">Index</button><button data-v="yoy">Y-o-Y %</button></div></div>
+      <div class="seg" id="segCmp" style="margin-left:auto"><button data-v="index" class="on">Index</button><button data-v="yoy">Y-o-Y</button><button data-v="mom">M-o-M</button><button data-v="ytd">YTD</button></div></div>
+    <div class="ctrls range"><span class="rlab">Range</span><select id="cmpFrom"></select><span class="rto">to</span><select id="cmpTo"></select></div>
     <p class="hint">Tick groups to overlay their spliced continuous series.</p>
     <div class="chk" id="cmpChk"></div>
     <div id="compare" class="chart"></div>
@@ -127,8 +136,9 @@
 
   <div class="panel">
     <div class="ctrls"><h2 style="margin:0">Inflation heatmap</h2>
-      <div class="seg" id="segHeat" style="margin-left:auto"><button data-h="yoy" class="on">Y-o-Y %</button><button data-h="mom">MoM %</button></div></div>
-    <p class="hint">Group × month intensity (last 36 months, 2021=100). Red = rising faster.</p>
+      <div class="seg" id="segHeat" style="margin-left:auto"><button data-h="yoy" class="on">Y-o-Y</button><button data-h="mom">M-o-M</button><button data-h="ytd">YTD</button></div></div>
+    <div class="ctrls range"><span class="rlab">Range</span><select id="heatFrom"></select><span class="rto">to</span><select id="heatTo"></select></div>
+    <p class="hint">Group × month intensity (2021=100). Red = rising faster.</p>
     <div id="heat" class="chart tall"></div>
   </div>
 
@@ -161,14 +171,16 @@
   <div class="grid2 wide">
     <div class="panel">
       <div class="ctrls"><h2 style="margin:0">Category breakdown</h2>
-        <div class="seg" id="segCat" style="margin-left:auto"><button data-v="index" class="on">Index</button><button data-v="yoy">Y-o-Y %</button></div></div>
+        <div class="seg" id="segCat" style="margin-left:auto"><button data-v="index" class="on">Index</button><button data-v="yoy">Y-o-Y</button><button data-v="mom">M-o-M</button><button data-v="ytd">YTD</button></div></div>
       <p class="hint" id="catHint">Latest month · 2021=100 · aggregates excluded.</p>
       <div id="cats" class="chart sm"></div>
     </div>
     <div class="panel">
       <div class="ctrls"><h2 style="margin:0">Sub-group trend</h2>
-        <select id="groupSel" style="margin-left:auto;max-width:230px"></select></div>
-      <p class="hint">Spliced continuous index for the chosen group.</p>
+        <div class="seg" id="segGrp" style="margin-left:auto"><button data-g="index" class="on">Index</button><button data-g="yoy">Y-o-Y</button><button data-g="mom">M-o-M</button><button data-g="ytd">YTD</button></div>
+        <select id="groupSel" style="max-width:200px"></select></div>
+      <div class="ctrls range"><span class="rlab">Range</span><select id="grpFrom"></select><span class="rto">to</span><select id="grpTo"></select></div>
+      <p class="hint">Spliced series for the chosen group; metric selectable.</p>
       <div id="group" class="chart sm"></div>
     </div>
   </div>

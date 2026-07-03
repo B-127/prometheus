@@ -15,7 +15,7 @@ const toNum = v => { if(v===null||v===undefined||v==="") return null;
   const n=+(""+v).replace(/,/g,""); return isFinite(n)?n:null; };
 
 let STATE={tab1:[],tab2:[],measure:"index",core:"head",ctype:"line",base:"__spliced__",
-           cmpView:"index",catView:"index",heat:"yoy",updated:"—"};
+           cmpView:"index",catView:"index",heat:"yoy",grpView:"index",updated:"—"};
 const CH={};
 
 /* ---------- splice: identical to the verified Python reference ---------- */
@@ -76,6 +76,50 @@ function latestT2(){
   return {ym:last,rows:m.filter(r=>ymKey(+r.Year,+r["Month No"])===last)};
 }
 
+/* ---------- metric helpers: Index / Y-o-Y / M-o-M / YTD (yearly avg) ----------
+   Rates come from the workbook's own published columns (Tab1 decimals ->%, Tab2
+   already %), collapsed to the newest base per month for continuity. YTD = the
+   12-month / annual-average inflation column. */
+const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
+const T1COLS={yoy:{head:"CCPI YoY Inflation",core:"CCPI Core YoY Inflation"},
+  mom:{head:"CCPI MoM Change",core:"CCPI Core MoM Change"},
+  ytd:{head:"CCPI 12M Moving Avg Inflation",core:"CCPI Core 12M Moving Avg Inflation"}};
+const T2COLS={yoy:"Year-on-Year Inflation (%)",mom:"Month-to-Month Inflation (%)",ytd:"Annual Average Inflation (%)"};
+const METRIC_UNIT=m=>m==="index"?"":"%";
+let META={months:[],baseChanges:[],overlap:new Set(),heatMonths:[]};
+function buildMeta(){
+  const {series}=splice(ccpiPoints("CCPI Index"));
+  META.months=series.map(s=>s.key);
+  META.baseChanges=[];
+  for(let i=1;i<series.length;i++) if(series[i].base!==series[i-1].base) META.baseChanges.push(series[i].key);
+  META.overlap=overlapMonths(ccpiPoints("CCPI Index"));
+  META.heatMonths=[...new Set(STATE.tab2.filter(r=>r["Period Type"]==="Monthly"&&r["Base Year Used"]===LATEST_BASE)
+    .map(r=>ymKey(+r.Year,+r["Month No"])))].sort();
+}
+function collapseNewest(rows){
+  const seen={}; rows.forEach(r=>{ if(!(r.k in seen)||BASE_ORDER.indexOf(r.base)>BASE_ORDER.indexOf(seen[r.k].base)) seen[r.k]=r; });
+  return Object.keys(seen).sort().map(k=>({key:k,v:seen[k].v}));
+}
+function headlineSeries(metric,core,base){
+  if(metric==="index"){
+    const col=core?"CCPI Core Index":"CCPI Index"; const pts=ccpiPoints(col);
+    if(base==="__spliced__") return splice(pts).series.map(s=>({key:s.key,v:s.val}));
+    return pts.filter(p=>p.base===base).map(p=>({key:ymKey(p.year,p.month),v:p.value})).sort((a,b)=>a.key<b.key?-1:1);
+  }
+  const col=T1COLS[metric][core?"core":"head"];
+  return collapseNewest(STATE.tab1.filter(r=>toNum(r[col])!=null&&(base==="__spliced__"||r["Base Year Used"]===base))
+    .map(r=>({k:ymKey(+r.Year,+r["Month Number"]),v:toNum(r[col])*100,base:r["Base Year Used"]})));
+}
+function groupMetricSeries(g,metric){
+  if(metric==="index") return groupSeries(g).map(s=>({key:s.key,v:s.val}));
+  const col=T2COLS[metric];
+  return collapseNewest(STATE.tab2.filter(r=>r["Period Type"]==="Monthly"&&r.Group===g&&toNum(r[col])!=null)
+    .map(r=>({k:ymKey(+r.Year,+r["Month No"]),v:toNum(r[col]),base:r["Base Year Used"]})));
+}
+const inRange=(k,from,to)=>(!from||k>=from)&&(!to||k<=to);
+function baseChangeMarks(keysSet){ return META.baseChanges.filter(k=>keysSet.has(k)).map(k=>({xAxis:k})); }
+const rangeVals=(fromId,toId)=>[document.getElementById(fromId).value,document.getElementById(toId).value];
+
 /* ------------------------------ KPIs ------------------------------ */
 function renderKpis(){
   const t1=STATE.tab1.filter(r=>r["Base Year Used"]===LATEST_BASE&&toNum(r["CCPI Index"])!=null)
@@ -93,6 +137,7 @@ function renderKpis(){
   set("kCore",toNum(last["CCPI Core Index"])!=null?toNum(last["CCPI Core Index"]).toFixed(1):"—");
   set("kCoreYoY","core Y-o-Y "+(cyoy==null?"—":fmtPct(cyoy*100)));
   set("fMonth",ymKey(last.Year,last["Month Number"]));
+  set("kpiMonth",MONTHS[(+last["Month Number"])-1]+" "+last.Year);
   set("fUpdated",STATE.updated);
   set("fRows",String(STATE.tab1.length+STATE.tab2.length));
   set("fOverlap",String(overlapMonths(ccpiPoints("CCPI Index")).size));
@@ -100,28 +145,18 @@ function renderKpis(){
 
 /* ------------------------------ trend ------------------------------ */
 function drawTrend(){
-  const col=STATE.core==="core"?(STATE.measure==="yoy"?"CCPI Core YoY Inflation":"CCPI Core Index")
-                               :(STATE.measure==="yoy"?"CCPI YoY Inflation":"CCPI Index");
-  let xs=[],ys=[],marks=[],areas=[];
-  if(STATE.measure==="yoy"){
-    const rows=STATE.tab1.filter(r=>toNum(r[col])!=null&&(STATE.base==="__spliced__"||r["Base Year Used"]===STATE.base))
-      .map(r=>({k:ymKey(+r.Year,+r["Month Number"]),v:toNum(r[col])*100,base:r["Base Year Used"]}));
-    const seen={}; rows.forEach(r=>{ if(!(r.k in seen)||BASE_ORDER.indexOf(r.base)>BASE_ORDER.indexOf(seen[r.k].base)) seen[r.k]=r; });
-    const arr=Object.keys(seen).sort().map(k=>seen[k]); xs=arr.map(r=>r.k); ys=arr.map(r=>+r.v.toFixed(2));
-  } else {
-    const pts=ccpiPoints(col);
-    if(STATE.base==="__spliced__"){
-      const {series}=splice(pts); xs=series.map(s=>s.key); ys=series.map(s=>+s.val.toFixed(2));
-      for(let i=1;i<series.length;i++) if(series[i].base!==series[i-1].base) marks.push({xAxis:series[i].key});
-    } else {
-      const f=pts.filter(p=>p.base===STATE.base).sort((a,b)=>ymKey(a.year,a.month)<ymKey(b.year,b.month)?-1:1);
-      xs=f.map(p=>ymKey(p.year,p.month)); ys=f.map(p=>+p.value.toFixed(2));
-    }
-  }
-  // shade multi-base overlap spans (visible ranges) in the continuous view
-  if(STATE.base==="__spliced__") areas=overlapBands();
-  const isArea=STATE.ctype==="area", isBar=STATE.ctype==="bar";
-  CH.trend.setOption({grid:{left:52,right:16,top:16,bottom:28},tooltip:{trigger:"axis"},
+  const [from,to]=rangeVals("trendFrom","trendTo");
+  const core=STATE.core==="core", metric=STATE.measure;
+  const arr=headlineSeries(metric,core,STATE.base).filter(p=>inRange(p.key,from,to));
+  const xs=arr.map(p=>p.key), ys=arr.map(p=>+p.v.toFixed(2));
+  const keysSet=new Set(xs);
+  const marks=(STATE.base==="__spliced__")?baseChangeMarks(keysSet):[];
+  let areas=[];
+  if(STATE.base==="__spliced__"&&metric==="index")
+    areas=contiguousRanges([...META.overlap].filter(k=>keysSet.has(k)).sort()).map(([a,b])=>[{xAxis:a},{xAxis:b}]);
+  const isArea=STATE.ctype==="area", isBar=STATE.ctype==="bar", unit=METRIC_UNIT(metric);
+  CH.trend.setOption({grid:{left:52,right:16,top:16,bottom:28},
+    tooltip:{trigger:"axis",valueFormatter:v=>v==null?"—":v.toFixed(2)+unit},
     xAxis:{type:"category",data:xs,axisLabel:{fontSize:10,color:"#7a869a"}},
     yAxis:{type:"value",scale:true,splitLine:{lineStyle:{color:"#eef2f7"}},axisLabel:{fontSize:10,color:"#7a869a"}},
     series:[{type:isBar?"bar":"line",data:ys,smooth:!isBar,showSymbol:false,sampling:"lttb",
@@ -145,22 +180,20 @@ function fillCmp(){
   box.dataset.filled="1";
 }
 function drawCompare(){
+  const [from,to]=rangeVals("cmpFrom","cmpTo");
   const chosen=[...document.querySelectorAll("#cmpChk input:checked")].map(c=>c.value);
-  const yoy=STATE.cmpView==="yoy";
-  const series=[]; let xset=new Set();
+  const metric=STATE.cmpView, unit=METRIC_UNIT(metric);
+  const series=[]; const xset=new Set();
   chosen.forEach(g=>{
-    let s=groupSeries(g);
-    let data;
-    if(yoy){
-      const idx={}; s.forEach(p=>idx[p.key]=p.val);
-      data=s.map(p=>{ const [y,m]=p.key.split("-").map(Number); const pk=ymKey(y-1,m);
-        return (pk in idx)? [p.key,+(((p.val/idx[pk])-1)*100).toFixed(2)] : [p.key,null]; });
-    } else data=s.map(p=>[p.key,+p.val.toFixed(2)]);
+    const data=groupMetricSeries(g,metric).filter(p=>inRange(p.key,from,to)).map(p=>[p.key,+p.v.toFixed(2)]);
     data.forEach(d=>xset.add(d[0]));
     series.push({name:g,type:"line",showSymbol:false,smooth:true,sampling:"lttb",data});
   });
-  const xs=[...xset].sort();
-  CH.compare.setOption({grid:{left:52,right:16,top:24,bottom:28},tooltip:{trigger:"axis"},
+  const xs=[...xset].sort(), keysSet=new Set(xs);
+  if(series.length) series[0].markLine={symbol:"none",silent:true,
+    lineStyle:{color:"#b0b8c4",type:"dashed"},label:{show:false},data:baseChangeMarks(keysSet)};
+  CH.compare.setOption({grid:{left:52,right:16,top:24,bottom:28},
+    tooltip:{trigger:"axis",valueFormatter:v=>v==null?"—":v.toFixed(2)+unit},
     legend:{type:"scroll",top:0,textStyle:{fontSize:10}},
     xAxis:{type:"category",data:xs,axisLabel:{fontSize:10,color:"#7a869a"}},
     yAxis:{type:"value",scale:true,splitLine:{lineStyle:{color:"#eef2f7"}},axisLabel:{fontSize:10,color:"#7a869a"}},
@@ -169,10 +202,11 @@ function drawCompare(){
 
 /* ------------------------------ heatmap ------------------------------ */
 function drawHeat(){
+  const [from,to]=rangeVals("heatFrom","heatTo");
   const groups=groupList();
-  const col=STATE.heat==="mom"?"Month-to-Month Inflation (%)":"Year-on-Year Inflation (%)";
+  const col=T2COLS[STATE.heat];
+  const months=META.heatMonths.filter(k=>inRange(k,from,to));
   const rows=STATE.tab2.filter(r=>r["Period Type"]==="Monthly"&&r["Base Year Used"]===LATEST_BASE);
-  const months=[...new Set(rows.map(r=>ymKey(+r.Year,+r["Month No"])))].sort().slice(-HEAT_MONTHS);
   const gi=Object.fromEntries(groups.map((g,i)=>[g,i])), mi=Object.fromEntries(months.map((m,i)=>[m,i]));
   const data=[]; let vmax=1;
   rows.forEach(r=>{ const k=ymKey(+r.Year,+r["Month No"]); const v=toNum(r[col]);
@@ -266,8 +300,9 @@ function drawAnom(){
 /* ------------------------------ category + subgroup ------------------------------ */
 function drawCats(){
   const {ym,rows}=latestT2();
-  document.getElementById("catHint").textContent=`Latest month ${ym||"—"} · 2021=100 · aggregates excluded.`;
-  const col=STATE.catView==="yoy"?"Year-on-Year Inflation (%)":"Index Number";
+  document.getElementById("catHint").textContent=`Latest month ${ym||"—"} · aggregates excluded.`;
+  const colMap={index:"Index Number",yoy:"Year-on-Year Inflation (%)",mom:"Month-to-Month Inflation (%)",ytd:"Annual Average Inflation (%)"};
+  const col=colMap[STATE.catView];
   const data=rows.filter(r=>!AGG.has(r.Group)&&toNum(r[col])!=null)
     .map(r=>({name:r.Group,val:toNum(r[col])})).sort((a,b)=>a.val-b.val);
   CH.cats.setOption({grid:{left:8,right:26,top:8,bottom:8,containLabel:true},
@@ -275,7 +310,7 @@ function drawCats(){
     xAxis:{type:"value",axisLabel:{fontSize:10,color:"#7a869a"},splitLine:{lineStyle:{color:"#eef2f7"}}},
     yAxis:{type:"category",data:data.map(d=>d.name),axisLabel:{fontSize:10,color:"#5b6b80",width:150,overflow:"truncate"}},
     series:[{type:"bar",data:data.map(d=>+d.val.toFixed(2)),barWidth:"62%",
-      itemStyle:{color:STATE.catView==="yoy"?"#c0561a":"#1f6feb",borderRadius:[0,4,4,0]}}]},true);
+      itemStyle:{color:STATE.catView==="index"?"#1f6feb":"#c0561a",borderRadius:[0,4,4,0]}}]},true);
 }
 function fillGroups(){
   const sel=document.getElementById("groupSel"); if(sel.dataset.filled) return;
@@ -285,12 +320,19 @@ function fillGroups(){
 }
 function drawGroup(){
   const g=document.getElementById("groupSel").value; if(!g) return;
-  const s=groupSeries(g);
-  CH.group.setOption({grid:{left:48,right:16,top:14,bottom:26},tooltip:{trigger:"axis"},
-    xAxis:{type:"category",data:s.map(x=>x.key),axisLabel:{fontSize:10,color:"#7a869a"}},
+  const [from,to]=rangeVals("grpFrom","grpTo");
+  const metric=STATE.grpView, unit=METRIC_UNIT(metric);
+  const arr=groupMetricSeries(g,metric).filter(p=>inRange(p.key,from,to));
+  const xs=arr.map(p=>p.key), ys=arr.map(p=>+p.v.toFixed(metric==="index"?1:2));
+  const keysSet=new Set(xs);
+  CH.group.setOption({grid:{left:48,right:16,top:14,bottom:26},
+    tooltip:{trigger:"axis",valueFormatter:v=>v==null?"—":v.toFixed(2)+unit},
+    xAxis:{type:"category",data:xs,axisLabel:{fontSize:10,color:"#7a869a"}},
     yAxis:{type:"value",scale:true,splitLine:{lineStyle:{color:"#eef2f7"}},axisLabel:{fontSize:10,color:"#7a869a"}},
-    series:[{type:"line",data:s.map(x=>+x.val.toFixed(1)),smooth:true,showSymbol:false,sampling:"lttb",
-      lineStyle:{width:2,color:"#1a8a55"},areaStyle:{color:"rgba(26,138,85,.07)"}}]},true);
+    series:[{type:"line",data:ys,smooth:true,showSymbol:false,sampling:"lttb",
+      lineStyle:{width:2,color:"#1a8a55"},areaStyle:{color:"rgba(26,138,85,.07)"},
+      markLine:{symbol:"none",silent:true,lineStyle:{color:"#b0b8c4",type:"dashed"},
+        label:{show:false},data:baseChangeMarks(keysSet)}}]},true);
 }
 function drawTable(){
   const ov=overlapMonths(ccpiPoints("CCPI Index"));
@@ -345,7 +387,12 @@ function wire(){
   document.getElementById("segCmp").onclick=e=>seg(e,"segCmp","v",v=>{STATE.cmpView=v;drawCompare();});
   document.getElementById("segHeat").onclick=e=>seg(e,"segHeat","h",v=>{STATE.heat=v;drawHeat();});
   document.getElementById("segCat").onclick=e=>seg(e,"segCat","v",v=>{STATE.catView=v;drawCats();});
+  document.getElementById("segGrp").onclick=e=>seg(e,"segGrp","g",v=>{STATE.grpView=v;drawGroup();});
   document.getElementById("groupSel").onchange=drawGroup;
+  ["trendFrom","trendTo"].forEach(id=>document.getElementById(id).onchange=drawTrend);
+  ["cmpFrom","cmpTo"].forEach(id=>document.getElementById(id).onchange=drawCompare);
+  ["grpFrom","grpTo"].forEach(id=>document.getElementById(id).onchange=drawGroup);
+  ["heatFrom","heatTo"].forEach(id=>document.getElementById(id).onchange=drawHeat);
   document.getElementById("simReset").onclick=()=>{document.querySelectorAll("#simRows input").forEach(i=>i.value="0");
     (window.__sim||[]).forEach(c=>c.shock=0); runSim();};
   document.getElementById("expCsv").onclick=exportCsv;
@@ -354,11 +401,26 @@ function wire(){
   document.getElementById("expPrint").onclick=()=>window.print();
   window.addEventListener("resize",()=>Object.values(CH).forEach(c=>c&&c.resize()));
 }
+function fillRanges(){
+  const fill=(fromId,toId,months,defFromIdx)=>{
+    const f=document.getElementById(fromId), t=document.getElementById(toId);
+    months.forEach(k=>{
+      const o1=document.createElement("option"); o1.value=k; o1.textContent=k; f.appendChild(o1);
+      const o2=document.createElement("option"); o2.value=k; o2.textContent=k; t.appendChild(o2);
+    });
+    if(months.length){ f.value=months[Math.max(0,defFromIdx)]; t.value=months[months.length-1]; }
+  };
+  fill("trendFrom","trendTo",META.months,0);
+  fill("cmpFrom","cmpTo",META.months,0);
+  fill("grpFrom","grpTo",META.months,0);
+  fill("heatFrom","heatTo",META.heatMonths,Math.max(0,META.heatMonths.length-HEAT_MONTHS));
+}
 function initCharts(){ ["trend","compare","heat","drivers","cats","group"].forEach(id=>CH[id]=echarts.init(document.getElementById(id))); }
 function boot(wb){
   STATE.tab1=rowsOf(wb,"CCPI Data"); STATE.tab2=rowsOf(wb,"CCPI Subgroup Breakdown");
   if(!STATE.tab1.length){showBanner("err","Workbook loaded but 'CCPI Data' is empty or renamed.");return;}
-  initCharts(); wire(); fillBaseSel(); fillCmp(); fillGroups();
+  buildMeta();
+  initCharts(); wire(); fillBaseSel(); fillCmp(); fillGroups(); fillRanges();
   renderKpis(); drawTrend(); drawCompare(); drawHeat(); drawDrivers(); buildSim();
   drawAnom(); drawCats(); drawGroup(); drawTable();
 }
