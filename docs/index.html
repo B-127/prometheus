@@ -91,10 +91,14 @@
 <div class="wrap">
   <div class="banner warn" id="banner"></div>
 
-  <div class="exportbar ctrls" style="justify-content:flex-end">
-    <button class="btn" id="expCsv">Export CSV</button>
-    <button class="btn" id="expXlsx">Export Excel</button>
-    <button class="btn" id="expPng">Chart PNG</button>
+  <div class="exportbar ctrls" style="justify-content:flex-end;gap:8px;flex-wrap:wrap">
+    <span class="rlab">Export chart</span>
+    <select id="expChart" aria-label="Chart to export"></select>
+    <span class="rlab">Range</span>
+    <select id="expFrom" aria-label="Export from month"></select><span class="rto">to</span><select id="expTo" aria-label="Export to month"></select>
+    <button class="btn" id="expCsv">CSV</button>
+    <button class="btn" id="expXlsx">Excel</button>
+    <button class="btn" id="expPng">PNG</button>
     <button class="btn" id="expPrint">Print / PDF</button>
   </div>
 

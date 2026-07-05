@@ -86,6 +86,7 @@ const T1COLS={yoy:{head:"CCPI YoY Inflation",core:"CCPI Core YoY Inflation"},
   ytd:{head:"CCPI 12M Moving Avg Inflation",core:"CCPI Core 12M Moving Avg Inflation"}};
 const T2COLS={yoy:"Year-on-Year Inflation (%)",mom:"Month-to-Month Inflation (%)",ytd:"Annual Average Inflation (%)"};
 const METRIC_UNIT=m=>m==="index"?"":"%";
+const METRIC_LABEL=m=>({index:"Index",yoy:"Y-o-Y %",mom:"M-o-M %",ytd:"YTD %"}[m]);
 let META={months:[],baseChanges:[],overlap:new Set(),heatMonths:[]};
 function buildMeta(){
   const {series}=splice(ccpiPoints("CCPI Index"));
@@ -166,6 +167,8 @@ function drawTrend(){
         label:{show:false},data:marks},
       markArea:{silent:true,itemStyle:{color:"rgba(240,179,74,.22)"},
         label:{show:false},data:areas}}]},true);
+  CH.trend.__name=(core?"Core ":"")+"CCPI "+METRIC_LABEL(metric);
+  CH.trend.__rows=arr.map(p=>({Month:p.key,[CH.trend.__name]:+p.v.toFixed(2)}));
 }
 
 /* ------------------------------ compare ------------------------------ */
@@ -198,6 +201,9 @@ function drawCompare(){
     xAxis:{type:"category",data:xs,axisLabel:{fontSize:10,color:"#7a869a"}},
     yAxis:{type:"value",scale:true,splitLine:{lineStyle:{color:"#eef2f7"}},axisLabel:{fontSize:10,color:"#7a869a"}},
     series},true);
+  const wide={}; series.forEach(s=>s.data.forEach(([k,v])=>{(wide[k]=wide[k]||{Month:k})[s.name]=v;}));
+  CH.compare.__name="Compare "+METRIC_LABEL(metric);
+  CH.compare.__rows=xs.map(k=>wide[k]||{Month:k});
 }
 
 /* ------------------------------ heatmap ------------------------------ */
@@ -218,6 +224,8 @@ function drawHeat(){
     visualMap:{min:-vmax,max:vmax,calculable:true,orient:"horizontal",left:"center",bottom:6,
       inRange:{color:["#1a8a55","#f4f7fb","#c0392b"]},textStyle:{fontSize:10}},
     series:[{type:"heatmap",data,progressive:1000,itemStyle:{borderColor:"#fff",borderWidth:.5}}]},true);
+  CH.heat.__name="Heatmap "+METRIC_LABEL(STATE.heat);
+  CH.heat.__rows=data.map(d=>({Month:months[d[0]],Group:groups[d[1]],[METRIC_LABEL(STATE.heat)]:d[2]}));
 }
 
 /* ------------------------------ drivers ------------------------------ */
@@ -243,6 +251,8 @@ function drawDrivers(){
     yAxis:{type:"category",data:arr.map(d=>d.name),axisLabel:{fontSize:10,color:"#5b6b80",width:150,overflow:"truncate"}},
     series:[{type:"bar",data:arr.map(d=>+d.c.toFixed(3)),barWidth:"62%",
       itemStyle:{color:p=>p.value<0?"#1a8a55":"#c0561a",borderRadius:[0,4,4,0]}}]},true);
+  CH.drivers.__name="Inflation drivers";
+  CH.drivers.__rows=arr.map(d=>({Group:d.name,"Contribution (pp)":+d.c.toFixed(3)}));
 }
 
 /* ------------------------------ scenario ------------------------------ */
@@ -311,6 +321,9 @@ function drawCats(){
     yAxis:{type:"category",data:data.map(d=>d.name),axisLabel:{fontSize:10,color:"#5b6b80",width:150,overflow:"truncate"}},
     series:[{type:"bar",data:data.map(d=>+d.val.toFixed(2)),barWidth:"62%",
       itemStyle:{color:STATE.catView==="index"?"#1f6feb":"#c0561a",borderRadius:[0,4,4,0]}}]},true);
+  const ch=STATE.catView==="index"?"Index":METRIC_LABEL(STATE.catView);
+  CH.cats.__name="Category "+ch;
+  CH.cats.__rows=data.map(d=>({Group:d.name,[ch]:+d.val.toFixed(2)}));
 }
 function fillGroups(){
   const sel=document.getElementById("groupSel"); if(sel.dataset.filled) return;
@@ -333,6 +346,9 @@ function drawGroup(){
       lineStyle:{width:2,color:"#1a8a55"},areaStyle:{color:"rgba(26,138,85,.07)"},
       markLine:{symbol:"none",silent:true,lineStyle:{color:"#b0b8c4",type:"dashed"},
         label:{show:false},data:baseChangeMarks(keysSet)}}]},true);
+  const gh=g+" "+METRIC_LABEL(metric);
+  CH.group.__name="Subgroup "+g;
+  CH.group.__rows=arr.map(p=>({Month:p.key,[gh]:+p.v.toFixed(metric==="index"?1:2)}));
 }
 function drawTable(){
   const ov=overlapMonths(ccpiPoints("CCPI Index"));
@@ -356,18 +372,62 @@ function continuousRows(){
   return splice(ccpiPoints("CCPI Index")).series.map(s=>({Month:s.key,
     "Spliced Index":+s.val.toFixed(2),"Source Base":s.base,Overlap:ov.has(s.key)?"yes":""}));
 }
+// numeric cells output raw; only TEXT cells get the formula-injection guard
+function csvVal(v){ if(v==null) return ""; if(typeof v==="number") return String(v);
+  let s=String(v); if(/^[=+\-@\t\r]/.test(s)) s="'"+s;
+  if(/[",\n]/.test(s)) s='"'+s.replace(/"/g,'""')+'"'; return s; }
+const slug=s=>String(s||"chart").replace(/[^A-Za-z0-9]+/g,"_").replace(/^_+|_+$/g,"").toLowerCase()||"chart";
+const selInst=()=>CH[document.getElementById("expChart").value];
 function exportCsv(){
-  const rows=continuousRows(); const cols=Object.keys(rows[0]||{Month:""});
-  const lines=[cols.map(csvCell).join(",")].concat(rows.map(r=>cols.map(c=>csvCell(r[c])).join(",")));
-  download("ccpi_continuous.csv",new Blob([lines.join("\n")],{type:"text/csv;charset=utf-8"}));
+  const inst=selInst(); const rows=(inst&&inst.__rows)||[]; if(!rows.length) return;
+  const cols=[...new Set(rows.flatMap(r=>Object.keys(r)))];
+  const lines=[cols.map(csvVal).join(",")].concat(rows.map(r=>cols.map(c=>csvVal(r[c])).join(",")));
+  download(slug(inst.__name)+".csv",new Blob([lines.join("\n")],{type:"text/csv;charset=utf-8"}));
 }
 function exportXlsx(){
-  const rows=continuousRows().map(r=>{const o={};for(const k in r)o[k]=(typeof r[k]==="string"&&/^[=+\-@]/.test(r[k]))?"'"+r[k]:r[k];return o;});
+  const inst=selInst(); const src=(inst&&inst.__rows)||[]; if(!src.length) return;
+  const rows=src.map(r=>{const o={};for(const k in r){const v=r[k];
+    o[k]=(typeof v==="string"&&/^[=+\-@]/.test(v))?"'"+v:v;}return o;});
   const ws=XLSX.utils.json_to_sheet(rows); const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,"CCPI Continuous"); XLSX.writeFile(wb,"ccpi_continuous.xlsx");
+  XLSX.utils.book_append_sheet(wb,ws,"Data"); XLSX.writeFile(wb,slug(inst.__name)+".xlsx");
 }
-function exportPng(){ const url=CH.trend.getDataURL({type:"png",pixelRatio:2,backgroundColor:"#fff"});
-  const a=document.createElement("a"); a.href=url; a.download="ccpi_trend.png"; a.click(); }
+function exportPng(){ const inst=selInst(); if(!inst) return;
+  const url=inst.getDataURL({type:"png",pixelRatio:2,backgroundColor:"#fff"});
+  const a=document.createElement("a"); a.href=url; a.download=slug(inst.__name)+".png"; a.click(); }
+
+/* which charts are exportable, and their linked on-screen range selects */
+const EXPORTS={
+  trend:{label:"CCPI trend",rangeIds:["trendFrom","trendTo"],months:()=>META.months},
+  compare:{label:"Compare groups",rangeIds:["cmpFrom","cmpTo"],months:()=>META.months},
+  group:{label:"Sub-group trend",rangeIds:["grpFrom","grpTo"],months:()=>META.months},
+  heat:{label:"Inflation heatmap",rangeIds:["heatFrom","heatTo"],months:()=>META.heatMonths},
+  cats:{label:"Category breakdown (latest month)",rangeIds:null},
+  drivers:{label:"Inflation drivers (latest month)",rangeIds:null},
+};
+const EXPORT_DRAW={trend:drawTrend,compare:drawCompare,group:drawGroup,heat:drawHeat,cats:drawCats,drivers:drawDrivers};
+function fillOpts(selEl,months,val){ selEl.textContent="";
+  months.forEach(k=>{const o=document.createElement("option");o.value=k;o.textContent=k;selEl.appendChild(o);});
+  if(val!=null) selEl.value=val; }
+function fillExport(){
+  const sel=document.getElementById("expChart");
+  Object.entries(EXPORTS).forEach(([k,c])=>{const o=document.createElement("option");o.value=k;o.textContent=c.label;sel.appendChild(o);});
+  onExpChart();
+}
+function onExpChart(){
+  const cfg=EXPORTS[document.getElementById("expChart").value];
+  const f=document.getElementById("expFrom"), t=document.getElementById("expTo");
+  if(cfg.rangeIds){
+    fillOpts(f,cfg.months(),document.getElementById(cfg.rangeIds[0]).value);
+    fillOpts(t,cfg.months(),document.getElementById(cfg.rangeIds[1]).value);
+    f.disabled=false; t.disabled=false;
+  } else { f.textContent=""; t.textContent=""; f.disabled=true; t.disabled=true; }
+}
+function onExpRange(){
+  const key=document.getElementById("expChart").value, cfg=EXPORTS[key]; if(!cfg.rangeIds) return;
+  document.getElementById(cfg.rangeIds[0]).value=document.getElementById("expFrom").value;
+  document.getElementById(cfg.rangeIds[1]).value=document.getElementById("expTo").value;
+  EXPORT_DRAW[key]();   // redraw on-screen chart to this range so the export matches exactly
+}
 
 /* ------------------------------ wiring / boot ------------------------------ */
 function seg(e,id,attr,cb){ if(e.target.tagName!=="BUTTON")return;
@@ -399,6 +459,9 @@ function wire(){
   document.getElementById("expXlsx").onclick=exportXlsx;
   document.getElementById("expPng").onclick=exportPng;
   document.getElementById("expPrint").onclick=()=>window.print();
+  document.getElementById("expChart").onchange=onExpChart;
+  document.getElementById("expFrom").onchange=onExpRange;
+  document.getElementById("expTo").onchange=onExpRange;
   window.addEventListener("resize",()=>Object.values(CH).forEach(c=>c&&c.resize()));
 }
 function fillRanges(){
@@ -422,7 +485,7 @@ function boot(wb){
   buildMeta();
   initCharts(); wire(); fillBaseSel(); fillCmp(); fillGroups(); fillRanges();
   renderKpis(); drawTrend(); drawCompare(); drawHeat(); drawDrivers(); buildSim();
-  drawAnom(); drawCats(); drawGroup(); drawTable();
+  drawAnom(); drawCats(); drawGroup(); drawTable(); fillExport();
 }
 function showBanner(kind,msg){const b=document.getElementById("banner");b.className="banner "+kind;b.textContent=msg;b.style.display="block";}
 
