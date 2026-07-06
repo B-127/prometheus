@@ -194,7 +194,7 @@ function drawTrend(){
       areaStyle:(isArea?{color:"rgba(31,111,235,.10)"}:null),
       markLine:{symbol:"none",silent:true,lineStyle:{color:"#b0b8c4",type:"dashed"},
         label:{show:false},data:marks},
-      markArea:{silent:true,itemStyle:{color:"rgba(240,179,74,.22)"},
+      markArea:{silent:true,itemStyle:{color:"rgba(31,111,235,.14)"},
         label:{show:false},data:areas}}]},true);
   CH.trend.__name=(core?"Core ":"")+"CCPI "+METRIC_LABEL(metric);
   CH.trend.__rows=arr.map(p=>({Month:p.key,[CH.trend.__name]:+p.v.toFixed(2)}));
@@ -281,7 +281,7 @@ function drawDrivers(){
     xAxis:{type:"value",axisLabel:{fontSize:10,color:"#7a869a"},splitLine:{lineStyle:{color:"#eef2f7"}}},
     yAxis:{type:"category",data:arr.map(d=>d.name),axisLabel:{fontSize:10,color:"#5b6b80",width:150,overflow:"truncate"}},
     series:[{type:"bar",data:arr.map(d=>+d.c.toFixed(3)),barWidth:"62%",
-      itemStyle:{color:p=>p.value<0?"#1a8a55":"#c0561a",borderRadius:[0,4,4,0]}}]},true);
+      itemStyle:{color:p=>p.value<0?"#1a8a55":"#de4940",borderRadius:[0,4,4,0]}}]},true);
   CH.drivers.__name="Inflation drivers";
   CH.drivers.__rows=arr.map(d=>({Group:d.name,"Contribution (pp)":+d.c.toFixed(3)}));
 }
@@ -385,7 +385,7 @@ function drawCats(){
     xAxis:{type:"value",axisLabel:{fontSize:10,color:"#7a869a"},splitLine:{lineStyle:{color:"#eef2f7"}}},
     yAxis:{type:"category",data:data.map(d=>d.name),axisLabel:{fontSize:10,color:"#5b6b80",width:150,overflow:"truncate"}},
     series:[{type:"bar",data:data.map(d=>+d.val.toFixed(2)),barWidth:"62%",
-      itemStyle:{color:STATE.catView==="index"?"#1f6feb":"#c0561a",borderRadius:[0,4,4,0]}}]},true);
+      itemStyle:{color:STATE.catView==="index"?"#1f6feb":"#de4940",borderRadius:[0,4,4,0]}}]},true);
   const ch=STATE.catView==="index"?"Index":METRIC_LABEL(STATE.catView);
   CH.cats.__name="Category "+ch;
   CH.cats.__rows=data.map(d=>({Group:d.name,[ch]:+d.val.toFixed(2)}));
