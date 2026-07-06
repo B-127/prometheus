@@ -17,18 +17,20 @@
   base-uri 'none';
   form-action 'none';
   frame-ancestors 'none';">
-<title>Sri Lanka CCPI Dashboard</title>
+<title>Prometheus</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.5.0/echarts.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <style>
-  :root{--bg:#0d1b2a;--ink:#1b263b;--muted:#5b6b80;--line:#e4e9f0;--accent:#1f6feb;
-        --soft:#f4f7fb;--good:#1a8a55;--warn:#c0561a;--bad:#c0392b;--overlap:#f0b34a}
+  /* Palette: off-white #EAEAEC · charcoal #282828 · near-black #111111 · red #DE4940 · blue #489FD7 */
+  :root{--bg:#141414;--ink:#242424;--muted:#6b7078;--line:#e2e4e7;--accent:#489FD7;
+        --soft:#f1f2f4;--good:#1a8a55;--warn:#c0561a;--bad:#DE4940;--overlap:#f0b34a;
+        --headtext:#eaeaec;--headsub:#a7adb5;--pill:#282828}
   *{box-sizing:border-box}
   body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--ink);background:var(--soft)}
-  header{background:var(--bg);color:#fff;padding:16px 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
+  header{background:var(--bg);color:var(--headtext);padding:16px 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
   header h1{font-size:18px;margin:0;font-weight:650}
-  header .sub{font-size:12px;color:#9fb3cc;margin-top:2px}
-  .pill{font-size:12px;background:#13314f;color:#cfe0f3;border-radius:999px;padding:6px 12px;display:flex;gap:14px;flex-wrap:wrap}
+  header .sub{font-size:12px;color:var(--headsub);margin-top:2px}
+  .pill{font-size:12px;background:var(--pill);color:#d6d9dd;border-radius:999px;padding:6px 12px;display:flex;gap:14px;flex-wrap:wrap}
   .pill b{color:#fff}
   .wrap{max-width:1180px;margin:0 auto;padding:18px 24px 56px}
   .banner{font-size:13px;padding:10px 14px;border-radius:10px;margin-bottom:16px;display:none}
@@ -78,13 +80,11 @@
 </head>
 <body>
 <header>
-  <div><h1>Sri Lanka — Colombo Consumer Price Index</h1>
-    <div class="sub">Read directly from the workbook · base-year-spliced continuous series</div></div>
+  <div><h1>Prometheus</h1>
+    <div class="sub">Colombo Consumer Price Index Dashboard</div></div>
   <div class="pill">
     <span>Latest <b id="fMonth">—</b></span>
-    <span>Updated <b id="fUpdated">—</b></span>
-    <span>Rows <b id="fRows">—</b></span>
-    <span>Overlap months <b id="fOverlap">—</b></span>
+    <span>Colombo <b id="fUpdated">—</b></span>
   </div>
 </header>
 
@@ -123,7 +123,7 @@
     <p class="hint">Continuous series rescaled into the latest base (2021=100). Dashed = base change; amber band = multi-base overlap month.</p>
     <div id="trend" class="chart"></div>
     <div class="legend">
-      <span><span class="sw" style="background:var(--accent)"></span>Spliced continuous</span>
+      <span><span class="sw" style="background:#1f6feb"></span>Spliced continuous</span>
       <span><span class="sw" style="background:#b0b8c4"></span>Base change</span>
       <span><span class="sw" style="background:var(--overlap)"></span>Multi-base overlap</span>
     </div>
@@ -153,10 +153,11 @@
       <div id="drivers" class="chart sm"></div>
     </div>
     <div class="panel">
-      <h2>Scenario simulation</h2>
-      <p class="hint">Apply hypothetical % changes to group indices; All Items is recomputed by weight. Hypothetical, not a forecast.</p>
+      <div class="ctrls"><h2 style="margin:0">Scenario simulation</h2>
+        <div class="seg" id="segSim" style="margin-left:auto"><button data-s="index" class="on">Index</button><button data-s="yoy">Y-o-Y</button><button data-s="mom">M-o-M</button><button data-s="ytd">YTD</button></div></div>
+      <p class="hint" id="simHint">Apply hypothetical % changes to this month's group indices; the headline is re-based on the published All Items index and expressed on the selected basis. Hypothetical, not a forecast.</p>
       <div class="stat">
-        <div><span class="n" id="simBase">—</span><span class="l">Baseline index</span></div>
+        <div><span class="n" id="simBase">—</span><span class="l" id="simBaseL">Baseline index</span></div>
         <div><span class="n" id="simNew">—</span><span class="l">Simulated</span></div>
         <div><span class="n" id="simDelta">—</span><span class="l">Change</span></div>
       </div>

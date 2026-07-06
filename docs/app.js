@@ -15,7 +15,7 @@ const toNum = v => { if(v===null||v===undefined||v==="") return null;
   const n=+(""+v).replace(/,/g,""); return isFinite(n)?n:null; };
 
 let STATE={tab1:[],tab2:[],measure:"index",core:"head",ctype:"line",base:"__spliced__",
-           cmpView:"index",catView:"index",heat:"yoy",grpView:"index",updated:"—"};
+           cmpView:"index",catView:"index",heat:"yoy",grpView:"index",simView:"index",updated:"—"};
 const CH={};
 
 /* ---------- splice: identical to the verified Python reference ---------- */
@@ -121,6 +121,37 @@ const inRange=(k,from,to)=>(!from||k>=from)&&(!to||k<=to);
 function baseChangeMarks(keysSet){ return META.baseChanges.filter(k=>keysSet.has(k)).map(k=>({xAxis:k})); }
 const rangeVals=(fromId,toId)=>[document.getElementById(fromId).value,document.getElementById(toId).value];
 
+/* Current date in Sri Lanka (Asia/Colombo), computed at view time. */
+function colomboDate(){
+  try{
+    return new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Colombo",
+      weekday:"short",day:"2-digit",month:"short",year:"numeric"}).format(new Date());
+  }catch(e){ return new Date().toDateString(); }
+}
+/* Published headline anchors for the scenario simulation. Index levels come from
+   the spliced continuous CCPI series (authoritative); rates come from the
+   workbook's own published columns, so every figure matches the topline KPIs. */
+function stepBack(k,n){ let [y,m]=k.split("-").map(Number);
+  for(let i=0;i<n;i++){ m--; if(m===0){ m=12; y--; } } return ymKey(y,m); }
+function publishedHeadline(){
+  const series=splice(ccpiPoints("CCPI Index")).series;
+  const idx={}; series.forEach(s=>{ idx[s.key]=s.val; });
+  const lastKey=series.length?series[series.length-1].key:null;
+  const curIdx=lastKey?idx[lastKey]:null;
+  const prevIdx=lastKey?idx[stepBack(lastKey,1)]:null;
+  const yearAgoIdx=lastKey?idx[stepBack(lastKey,12)]:null;
+  let meanPrev12=null;                                   // mean of months t-23..t-12
+  if(lastKey){ let sum=0,ok=true;
+    for(let i=12;i<24;i++){ const v=idx[stepBack(lastKey,i)]; if(v==null){ ok=false; break; } sum+=v; }
+    if(ok) meanPrev12=sum/12; }
+  const t1=STATE.tab1.filter(r=>r["Base Year Used"]===LATEST_BASE&&toNum(r["CCPI Index"])!=null)
+    .sort((a,b)=>(+a.Year-+b.Year)||(+a["Month Number"]-+b["Month Number"]));
+  const last=t1[t1.length-1]||{};
+  return {curIdx,prevIdx,yearAgoIdx,meanPrev12,
+    mom:toNum(last["CCPI MoM Change"]),yoy:toNum(last["CCPI YoY Inflation"]),
+    ytd:toNum(last["CCPI 12M Moving Avg Inflation"])};
+}
+
 /* ------------------------------ KPIs ------------------------------ */
 function renderKpis(){
   const t1=STATE.tab1.filter(r=>r["Base Year Used"]===LATEST_BASE&&toNum(r["CCPI Index"])!=null)
@@ -139,9 +170,7 @@ function renderKpis(){
   set("kCoreYoY","core Y-o-Y "+(cyoy==null?"—":fmtPct(cyoy*100)));
   set("fMonth",ymKey(last.Year,last["Month Number"]));
   set("kpiMonth",MONTHS[(+last["Month Number"])-1]+" "+last.Year);
-  set("fUpdated",STATE.updated);
-  set("fRows",String(STATE.tab1.length+STATE.tab2.length));
-  set("fOverlap",String(overlapMonths(ccpiPoints("CCPI Index")).size));
+  set("fUpdated",colomboDate());
 }
 
 /* ------------------------------ trend ------------------------------ */
@@ -222,7 +251,9 @@ function drawHeat(){
     xAxis:{type:"category",data:months,axisLabel:{fontSize:9,color:"#7a869a",rotate:60}},
     yAxis:{type:"category",data:groups,axisLabel:{fontSize:9,color:"#5b6b80",width:140,overflow:"truncate"}},
     visualMap:{min:-vmax,max:vmax,calculable:true,orient:"horizontal",left:"center",bottom:6,
-      inRange:{color:["#1a8a55","#f4f7fb","#c0392b"]},textStyle:{fontSize:10}},
+      inRange:{color:["#146c43","#1a8a55","#3fa46e","#69bb8c","#9ed3b4","#d4ecdd",
+        "#f4f6f8",
+        "#f7d6cf","#eda192","#df6f5b","#cf4b39","#b5271b","#8f1d14"]},textStyle:{fontSize:10}},
     series:[{type:"heatmap",data,progressive:1000,itemStyle:{borderColor:"#fff",borderWidth:.5}}]},true);
   CH.heat.__name="Heatmap "+METRIC_LABEL(STATE.heat);
   CH.heat.__rows=data.map(d=>({Month:months[d[0]],Group:groups[d[1]],[METRIC_LABEL(STATE.heat)]:d[2]}));
@@ -259,6 +290,7 @@ function drawDrivers(){
 function buildSim(){
   const box=document.getElementById("simRows"); box.textContent="";
   const {comp,wsum}=components();
+  window.__head=publishedHeadline();
   window.__sim=comp.map(r=>({name:r.Group,w:toNum(r["Weight (%)"])/wsum,index:toNum(r["Index Number"]),shock:0}));
   window.__sim.forEach((c,i)=>{
     const row=document.createElement("div"); row.className="simrow";
@@ -271,15 +303,48 @@ function buildSim(){
   });
   runSim();
 }
+const fmtPP = v => (v>0?"+":"")+v.toFixed(2)+" pp";
 function runSim(){
   const sim=window.__sim||[];
-  const base=sim.reduce((s,c)=>s+c.w*c.index,0);
-  const neu=sim.reduce((s,c)=>s+c.w*c.index*(1+c.shock/100),0);
-  const d=base?((neu/base-1)*100):0;
-  document.getElementById("simBase").textContent=base.toFixed(1);
-  document.getElementById("simNew").textContent=neu.toFixed(1);
-  const de=document.getElementById("simDelta"); de.textContent=fmtPct(d);
-  de.style.color=d<0?"var(--good)":d>0?"var(--bad)":"var(--muted)";
+  const H=window.__head||publishedHeadline();
+  // Weighted reconstruction gives the RELATIVE shock; the level is anchored to the
+  // published All Items index so the baseline always equals the topline (no 207.7/207.6 gap).
+  const baseRecon=sim.reduce((s,c)=>s+c.w*c.index,0);
+  const simRecon=sim.reduce((s,c)=>s+c.w*c.index*(1+c.shock/100),0);
+  const ratio=baseRecon?simRecon/baseRecon:1;
+  const curIdx=(H.curIdx!=null)?H.curIdx:baseRecon;   // published headline (anchor)
+  const simIdx=curIdx*ratio;
+  const dIdx=simIdx-curIdx;                            // change in index points
+  const view=STATE.simView;
+  const baseEl=document.getElementById("simBase");
+  const newEl=document.getElementById("simNew");
+  const delEl=document.getElementById("simDelta");
+  const baseL=document.getElementById("simBaseL");
+  let isPct=true, baseVal=0, newVal=0, changeDisp=0, changeTxt="—";
+  if(view==="index"){
+    isPct=false; baseL.textContent="Baseline index";
+    baseVal=curIdx; newVal=simIdx;
+    changeDisp=(ratio-1)*100; changeTxt=fmtPct(changeDisp);      // relative % change of the index
+  } else if(view==="mom"){
+    baseL.textContent="Baseline M-o-M";
+    baseVal=(H.mom!=null?H.mom*100:0);                            // published MoM %
+    newVal=baseVal+(H.prevIdx?dIdx/H.prevIdx*100:0);             // MoM is linear in current index
+    changeDisp=newVal-baseVal; changeTxt=fmtPP(changeDisp);
+  } else if(view==="yoy"){
+    baseL.textContent="Baseline Y-o-Y";
+    baseVal=(H.yoy!=null?H.yoy*100:0);                            // published YoY %
+    newVal=baseVal+(H.yearAgoIdx?dIdx/H.yearAgoIdx*100:0);       // YoY is linear in current index
+    changeDisp=newVal-baseVal; changeTxt=fmtPP(changeDisp);
+  } else { // ytd = 12-month / annual-average inflation
+    baseL.textContent="Baseline YTD";
+    baseVal=(H.ytd!=null?H.ytd*100:0);                           // published 12M-avg %
+    newVal=baseVal+(H.meanPrev12?(dIdx/12)/H.meanPrev12*100:0);  // current month is 1/12 of the trailing mean
+    changeDisp=newVal-baseVal; changeTxt=fmtPP(changeDisp);
+  }
+  baseEl.textContent=isPct?fmtPct(baseVal):baseVal.toFixed(1);
+  newEl.textContent =isPct?fmtPct(newVal) :newVal.toFixed(1);
+  delEl.textContent=changeTxt;
+  delEl.style.color=changeDisp<0?"var(--good)":changeDisp>0?"var(--bad)":"var(--muted)";
 }
 
 /* ------------------------------ anomaly ------------------------------ */
@@ -448,6 +513,7 @@ function wire(){
   document.getElementById("segHeat").onclick=e=>seg(e,"segHeat","h",v=>{STATE.heat=v;drawHeat();});
   document.getElementById("segCat").onclick=e=>seg(e,"segCat","v",v=>{STATE.catView=v;drawCats();});
   document.getElementById("segGrp").onclick=e=>seg(e,"segGrp","g",v=>{STATE.grpView=v;drawGroup();});
+  document.getElementById("segSim").onclick=e=>seg(e,"segSim","s",v=>{STATE.simView=v;runSim();});
   document.getElementById("groupSel").onchange=drawGroup;
   ["trendFrom","trendTo"].forEach(id=>document.getElementById(id).onchange=drawTrend);
   ["cmpFrom","cmpTo"].forEach(id=>document.getElementById(id).onchange=drawCompare);
