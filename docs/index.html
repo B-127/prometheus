@@ -62,8 +62,13 @@
   thead th{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px}
   .chk{display:flex;flex-wrap:wrap;gap:6px 14px;max-height:120px;overflow:auto;margin-bottom:8px}
   .chk label{font-size:12px;display:flex;align-items:center;gap:5px;color:var(--ink)}
-  .cgbuilder{border:1px solid var(--line);border-radius:10px;padding:10px;margin:6px 0 8px;background:#fafbfc}
-  .cgb-title{font-size:12px;font-weight:600;color:var(--ink);margin-bottom:6px}
+  .cgwrap{border:1px solid var(--line);border-radius:10px;margin:6px 0 8px;background:#fafbfc}
+  .cgwrap>summary{list-style:none;cursor:pointer;font-size:12px;font-weight:600;color:var(--ink);padding:9px 12px;display:flex;align-items:center;gap:8px;user-select:none}
+  .cgwrap>summary::-webkit-details-marker{display:none}
+  .cgwrap>summary::before{content:"";flex:none;width:0;height:0;border-left:5px solid var(--muted);border-top:4px solid transparent;border-bottom:4px solid transparent;transition:transform .15s}
+  .cgwrap[open]>summary::before{transform:rotate(90deg)}
+  .cgwrap>summary:hover{color:var(--accent)}
+  .cgbuilder{padding:0 10px 10px}
   .cgb-pick{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:1px 12px;max-height:132px;overflow:auto;padding:6px;border:1px solid var(--line);border-radius:8px;background:#fff}
   .cgb-pick label{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink);padding:2px 0;cursor:pointer}
   .cgb-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
@@ -84,7 +89,7 @@
   .stat div span{display:block}.stat .n{font-size:22px;font-weight:700}.stat .l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
   footer{max-width:1180px;margin:0 auto;padding:0 24px 40px;color:var(--muted);font-size:12px;line-height:1.6}
   @media(max-width:860px){.kpis{grid-template-columns:repeat(2,1fr)}.grid2,.grid2.wide{grid-template-columns:1fr}}
-  @media print{header .pill,.ctrls,.cgbuilder,.exportbar,#banner{display:none!important}
+  @media print{header .pill,.ctrls,.cgwrap,.exportbar,#banner{display:none!important}
     .panel{break-inside:avoid;border-color:#ccc}body{background:#fff}}
   .kpicap{font-size:12px;color:var(--muted);margin:2px 0 6px;letter-spacing:.2px}
   .kpicap b{color:var(--ink)}
@@ -151,17 +156,19 @@
     <div class="ctrls range"><span class="rlab">Range</span><select id="cmpFrom"></select><span class="rto">to</span><select id="cmpTo"></select></div>
     <p class="hint">Tick groups to overlay their spliced continuous series.</p>
     <div class="chk" id="cmpChk"></div>
-    <div class="cgbuilder">
-      <div class="cgb-title">Build a Composite Index</div>
-      <div class="cgb-pick" id="cgMembers" role="group" aria-label="Select subgroups to combine"></div>
-      <div class="cgb-row">
-        <input type="text" id="cgName" maxlength="40" placeholder="Name this group" aria-label="Custom group name">
-        <button class="btn" id="cgAdd">Add group</button>
-        <button class="btn" id="cgReset">Reset all</button>
-        <span class="cgb-count" id="cgCount">0 selected</span>
+    <details class="cgwrap">
+      <summary>Build a custom group (group of groups)</summary>
+      <div class="cgbuilder">
+        <div class="cgb-pick" id="cgMembers" role="group" aria-label="Select subgroups to combine"></div>
+        <div class="cgb-row">
+          <input type="text" id="cgName" maxlength="40" placeholder="Name this group" aria-label="Custom group name">
+          <button class="btn" id="cgAdd">Add group</button>
+          <button class="btn" id="cgReset">Reset all</button>
+          <span class="cgb-count" id="cgCount">0 selected</span>
+        </div>
+        <p class="hint" id="cgHint" style="margin:8px 0 0"></p>
       </div>
-      <p class="hint" id="cgHint" style="margin:8px 0 0"></p>
-    </div>
+    </details>
     <div class="cglist" id="cgList"></div>
     <div id="compare" class="chart"></div>
   </div>
