@@ -325,6 +325,8 @@ function renderComposites(){
     card.appendChild(cb); card.appendChild(body); card.appendChild(x); box.appendChild(card);
   });
 }
+/* composites now feed Compare, Heatmap and Drivers -> redraw all three on any change */
+function drawCompositeCharts(){ drawCompare(); drawHeat(); drawDrivers(); }
 function addComposite(){
   const boxes=[...document.querySelectorAll("#cgMembers input:checked")];
   const members=boxes.map(b=>b.value);
@@ -336,37 +338,48 @@ function addComposite(){
   if(taken.has(name.toLowerCase())){ let n=2; const base=name; while(taken.has((base+" ("+n+")").toLowerCase())) n++; name=base+" ("+n+")"; }
   STATE.composites.push({id:"cg"+(cgSeq++),name,members,sel:true});
   nameEl.value=""; boxes.forEach(b=>{ b.checked=false; }); updateCgCount();
-  hint.textContent=CG_HINT; renderComposites(); drawCompare();
+  hint.textContent=CG_HINT; renderComposites(); drawCompositeCharts();
 }
-function deleteComposite(id){ STATE.composites=STATE.composites.filter(c=>c.id!==id); renderComposites(); drawCompare(); }
+function deleteComposite(id){ STATE.composites=STATE.composites.filter(c=>c.id!==id); renderComposites(); drawCompositeCharts(); }
 function resetComposites(){
   STATE.composites=[];
   document.querySelectorAll("#cgMembers input:checked").forEach(b=>{ b.checked=false; }); updateCgCount();
-  document.getElementById("cgHint").textContent=CG_HINT; renderComposites(); drawCompare();
+  document.getElementById("cgHint").textContent=CG_HINT; renderComposites(); drawCompositeCharts();
 }
 
 /* ------------------------------ heatmap ------------------------------ */
+/* HTML-escape for any value injected into an ECharts HTML tooltip string.
+   Composite names are user-entered, so this closes an XSS vector. */
+function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,c=>
+  ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c])); }
 function drawHeat(){
   const [from,to]=rangeVals("heatFrom","heatTo");
   const groups=groupList();
   const col=T2COLS[STATE.heat];
   const months=META.heatMonths.filter(k=>inRange(k,from,to));
   const rows=STATE.tab2.filter(r=>r["Period Type"]==="Monthly"&&r["Base Year Used"]===LATEST_BASE);
+  const comps=(STATE.composites||[]).filter(c=>c.sel);
+  const yCats=groups.concat(comps.map(c=>c.name));            // composites appended -> shown at top
+  const compSet=new Set(comps.map(c=>c.name));
   const gi=Object.fromEntries(groups.map((g,i)=>[g,i])), mi=Object.fromEntries(months.map((m,i)=>[m,i]));
   const data=[]; let vmax=1;
   rows.forEach(r=>{ const k=ymKey(+r.Year,+r["Month No"]); const v=toNum(r[col]);
     if(r.Group in gi && k in mi && v!=null){ data.push([mi[k],gi[r.Group],+v.toFixed(1)]); vmax=Math.max(vmax,Math.abs(v)); }});
+  comps.forEach((c,ci)=>{ const yi=groups.length+ci;         // derived rate from the composite index
+    compositeMetricSeries(c.members,STATE.heat).forEach(p=>{ if(p.key in mi && p.v!=null){
+      const v=+p.v.toFixed(1); data.push([mi[p.key],yi,v]); vmax=Math.max(vmax,Math.abs(v)); }}); });
   CH.heat.setOption({grid:{left:8,right:16,top:8,bottom:56,containLabel:true},
-    tooltip:{position:"top",formatter:p=>`${groups[p.value[1]]}<br/>${months[p.value[0]]}: ${p.value[2]}%`},
+    tooltip:{position:"top",formatter:p=>`${esc(yCats[p.value[1]])}<br/>${esc(months[p.value[0]])}: ${p.value[2]}%`},
     xAxis:{type:"category",data:months,axisLabel:{fontSize:9,color:"#7a869a",rotate:60}},
-    yAxis:{type:"category",data:groups,axisLabel:{fontSize:9,color:"#5b6b80",width:140,overflow:"truncate"}},
+    yAxis:{type:"category",data:yCats,axisLabel:{fontSize:9,color:"#5b6b80",width:140,overflow:"truncate",
+      formatter:v=>compSet.has(v)?"\u25c6 "+v:v}},
     visualMap:{min:-vmax,max:vmax,calculable:true,orient:"horizontal",left:"center",bottom:6,
       inRange:{color:["#146c43","#1a8a55","#3fa46e","#69bb8c","#9ed3b4","#d4ecdd",
         "#f4f6f8",
         "#f7d6cf","#eda192","#df6f5b","#cf4b39","#b5271b","#8f1d14"]},textStyle:{fontSize:10}},
     series:[{type:"heatmap",data,progressive:1000,itemStyle:{borderColor:"#fff",borderWidth:.5}}]},true);
   CH.heat.__name="Heatmap "+METRIC_LABEL(STATE.heat);
-  CH.heat.__rows=data.map(d=>({Month:months[d[0]],Group:groups[d[1]],[METRIC_LABEL(STATE.heat)]:d[2]}));
+  CH.heat.__rows=data.map(d=>({Month:months[d[0]],Group:yCats[d[1]],[METRIC_LABEL(STATE.heat)]:d[2]}));
 }
 
 /* ------------------------------ drivers ------------------------------ */
@@ -378,10 +391,15 @@ function components(){
 }
 function drawDrivers(){
   const {comp,wsum}=components();
-  const arr=comp.map(r=>({name:r.Group,w:toNum(r["Weight (%)"])/wsum,
+  const base=comp.map(r=>({name:r.Group,w:toNum(r["Weight (%)"])/wsum,
       yoy:toNum(r["Year-on-Year Inflation (%)"])})).filter(d=>d.yoy!=null)
-    .map(d=>({name:d.name,c:d.w*d.yoy})).sort((a,b)=>a.c-b.c);
-  const sum=arr.reduce((s,d)=>s+d.c,0);
+    .map(d=>({name:d.name,c:d.w*d.yoy}));
+  const sum=base.reduce((s,d)=>s+d.c,0);                 // component-only sum (vs headline)
+  const cmap=Object.fromEntries(base.map(d=>[d.name,d.c]));
+  const comps=(STATE.composites||[]).filter(c=>c.sel);
+  const compSet=new Set(comps.map(c=>c.name));
+  const compEntries=comps.map(c=>({name:c.name,c:c.members.reduce((s,m)=>s+(cmap[m]||0),0)}));
+  const arr=base.concat(compEntries).sort((a,b)=>a.c-b.c);   // a basket's contribution = sum of its members'
   const allrow=latestT2().rows.find(r=>r.Group==="All Items");
   const head=allrow?toNum(allrow["Year-on-Year Inflation (%)"]):null;
   document.getElementById("drvHint").textContent=
@@ -389,7 +407,8 @@ function drawDrivers(){
   CH.drivers.setOption({grid:{left:8,right:26,top:8,bottom:8,containLabel:true},
     tooltip:{trigger:"axis",axisPointer:{type:"shadow"},valueFormatter:v=>v+" pp"},
     xAxis:{type:"value",axisLabel:{fontSize:10,color:"#7a869a"},splitLine:{lineStyle:{color:"#eef2f7"}}},
-    yAxis:{type:"category",data:arr.map(d=>d.name),axisLabel:{fontSize:10,color:"#5b6b80",width:150,overflow:"truncate"}},
+    yAxis:{type:"category",data:arr.map(d=>d.name),axisLabel:{fontSize:10,color:"#5b6b80",width:150,overflow:"truncate",
+      formatter:v=>compSet.has(v)?"\u25c6 "+v:v}},
     series:[{type:"bar",data:arr.map(d=>+d.c.toFixed(3)),barWidth:"62%",
       itemStyle:{color:p=>p.value<0?"#1a8a55":"#de4940",borderRadius:[0,4,4,0]}}]},true);
   CH.drivers.__name="Inflation drivers";
@@ -625,7 +644,7 @@ function wire(){
   document.getElementById("cgReset").onclick=resetComposites;
   document.getElementById("cgList").addEventListener("change",e=>{
     const t=e.target; if(t.matches('input[type=checkbox][data-cid]')){
-      const c=STATE.composites.find(x=>x.id===t.dataset.cid); if(c){ c.sel=t.checked; drawCompare(); } }});
+      const c=STATE.composites.find(x=>x.id===t.dataset.cid); if(c){ c.sel=t.checked; drawCompositeCharts(); } }});
   document.getElementById("cgList").addEventListener("click",e=>{
     const b=e.target.closest("button[data-del]"); if(b) deleteComposite(b.dataset.del); });
   document.getElementById("segHeat").onclick=e=>seg(e,"segHeat","h",v=>{STATE.heat=v;drawHeat();});
