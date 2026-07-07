@@ -18,7 +18,7 @@ let STATE={tab1:[],tab2:[],measure:"index",core:"head",ctype:"line",base:"__spli
            cmpView:"index",catView:"index",heat:"yoy",grpView:"index",simView:"index",
            composites:[],updated:"—"};
 let cgSeq=1;
-const CG_HINT="Select subgroups (Ctrl/Cmd-click for several), name the set, and Add to plot a weighted composite using official CCPI weights. Session only \u2014 cleared on refresh.";
+const CG_HINT="Tick subgroups above, name the set, and press Add. Composites use official CCPI weights and are session-only \u2014 cleared on refresh.";
 const CH={};
 
 /* ---------- splice: identical to the verified Python reference ---------- */
@@ -292,40 +292,58 @@ function compositeMetricSeries(members,metric){
   return out;
 }
 function fillCmpMembers(){
-  const sel=document.getElementById("cgMembers"); if(sel.dataset.filled) return;
-  groupList().forEach(g=>{ const o=document.createElement("option"); o.value=g; o.textContent=g; sel.appendChild(o); });
-  sel.dataset.filled="1";
+  const box=document.getElementById("cgMembers"); if(box.dataset.filled) return;
+  groupList().forEach(g=>{
+    const lab=document.createElement("label");
+    const cb=document.createElement("input"); cb.type="checkbox"; cb.value=g;
+    cb.addEventListener("change",updateCgCount);
+    lab.appendChild(cb); lab.appendChild(document.createTextNode(g)); box.appendChild(lab);
+  });
+  box.dataset.filled="1"; updateCgCount();
+}
+function updateCgCount(){
+  const n=document.querySelectorAll("#cgMembers input:checked").length;
+  const el=document.getElementById("cgCount"); if(el) el.textContent=n+" selected";
 }
 function renderComposites(){
   const box=document.getElementById("cgList"); box.textContent="";
   if(!STATE.composites.length){ const em=document.createElement("span");
     em.className="hint"; em.style.margin="0"; em.textContent="No custom groups yet."; box.appendChild(em); return; }
   STATE.composites.forEach(c=>{
-    const item=document.createElement("span"); item.className="cgitem";
+    const card=document.createElement("div"); card.className="cgcard";
     const cb=document.createElement("input"); cb.type="checkbox"; cb.checked=c.sel; cb.dataset.cid=c.id;
     cb.setAttribute("aria-label","Show "+c.name+" on chart");
-    const nm=document.createElement("span"); nm.className="cgnm"; nm.textContent=c.name;
-    nm.title=c.name+" = "+c.members.join(", ");
+    const body=document.createElement("div"); body.className="cgcard-body";
+    const nm=document.createElement("div"); nm.className="cgcard-name"; nm.textContent=c.name;
+    const nn=document.createElement("span"); nn.className="cgcard-n";
+    nn.textContent=" \u00b7 "+c.members.length+(c.members.length===1?" group":" groups");
+    nm.appendChild(nn);
+    const mem=document.createElement("div"); mem.className="cgcard-members"; mem.textContent=c.members.join(", ");
+    body.appendChild(nm); body.appendChild(mem);
     const x=document.createElement("button"); x.type="button"; x.className="cgx"; x.dataset.del=c.id;
     x.textContent="\u00d7"; x.title="Delete "+c.name; x.setAttribute("aria-label","Delete "+c.name);
-    item.appendChild(cb); item.appendChild(nm); item.appendChild(x); box.appendChild(item);
+    card.appendChild(cb); card.appendChild(body); card.appendChild(x); box.appendChild(card);
   });
 }
 function addComposite(){
-  const selEl=document.getElementById("cgMembers");
-  const members=[...selEl.selectedOptions].map(o=>o.value);
+  const boxes=[...document.querySelectorAll("#cgMembers input:checked")];
+  const members=boxes.map(b=>b.value);
   const nameEl=document.getElementById("cgName"), hint=document.getElementById("cgHint");
   let name=(nameEl.value||"").trim().replace(/\s+/g," ");
-  if(!members.length){ hint.textContent="Select at least one subgroup to combine."; return; }
+  if(!members.length){ hint.textContent="Tick at least one subgroup above to combine."; return; }
   if(!name){ hint.textContent="Give the group a name before adding."; return; }
   const taken=new Set([...STATE.composites.map(c=>c.name.toLowerCase()),...groupList().map(g=>g.toLowerCase())]);
   if(taken.has(name.toLowerCase())){ let n=2; const base=name; while(taken.has((base+" ("+n+")").toLowerCase())) n++; name=base+" ("+n+")"; }
   STATE.composites.push({id:"cg"+(cgSeq++),name,members,sel:true});
-  nameEl.value=""; [...selEl.options].forEach(o=>{ o.selected=false; });
+  nameEl.value=""; boxes.forEach(b=>{ b.checked=false; }); updateCgCount();
   hint.textContent=CG_HINT; renderComposites(); drawCompare();
 }
 function deleteComposite(id){ STATE.composites=STATE.composites.filter(c=>c.id!==id); renderComposites(); drawCompare(); }
-function resetComposites(){ STATE.composites=[]; document.getElementById("cgHint").textContent=CG_HINT; renderComposites(); drawCompare(); }
+function resetComposites(){
+  STATE.composites=[];
+  document.querySelectorAll("#cgMembers input:checked").forEach(b=>{ b.checked=false; }); updateCgCount();
+  document.getElementById("cgHint").textContent=CG_HINT; renderComposites(); drawCompare();
+}
 
 /* ------------------------------ heatmap ------------------------------ */
 function drawHeat(){
@@ -603,6 +621,7 @@ function wire(){
   document.getElementById("baseSel").onchange=e=>{STATE.base=e.target.value;drawTrend();};
   document.getElementById("segCmp").onclick=e=>seg(e,"segCmp","v",v=>{STATE.cmpView=v;drawCompare();});
   document.getElementById("cgAdd").onclick=addComposite;
+  document.getElementById("cgName").addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); addComposite(); }});
   document.getElementById("cgReset").onclick=resetComposites;
   document.getElementById("cgList").addEventListener("change",e=>{
     const t=e.target; if(t.matches('input[type=checkbox][data-cid]')){

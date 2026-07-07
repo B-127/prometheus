@@ -62,14 +62,21 @@
   thead th{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px}
   .chk{display:flex;flex-wrap:wrap;gap:6px 14px;max-height:120px;overflow:auto;margin-bottom:8px}
   .chk label{font-size:12px;display:flex;align-items:center;gap:5px;color:var(--ink)}
-  .cgbuild{display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;margin:2px 0 6px}
-  .cgbuild select[multiple]{min-width:230px;max-width:300px;padding:4px}
-  .cgctl{display:flex;flex-direction:column;gap:6px}
-  .cgctl input[type=text]{min-width:180px}
-  .cglist{display:flex;flex-wrap:wrap;gap:6px 8px;margin-bottom:8px}
-  .cgitem{display:inline-flex;align-items:center;gap:5px;font-size:12px;border:1px solid var(--line);border-radius:8px;padding:3px 6px;background:#fff}
-  .cgitem .cgnm{max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .cgx{cursor:pointer;border:none;background:none;color:var(--muted);font-size:15px;line-height:1;padding:0 2px}
+  .cgbuilder{border:1px solid var(--line);border-radius:10px;padding:10px;margin:6px 0 8px;background:#fafbfc}
+  .cgb-title{font-size:12px;font-weight:600;color:var(--ink);margin-bottom:6px}
+  .cgb-pick{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:1px 12px;max-height:132px;overflow:auto;padding:6px;border:1px solid var(--line);border-radius:8px;background:#fff}
+  .cgb-pick label{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink);padding:2px 0;cursor:pointer}
+  .cgb-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
+  .cgb-row input[type=text]{flex:1;min-width:150px}
+  .cgb-count{font-size:11px;color:var(--muted);margin-left:auto;white-space:nowrap}
+  .cglist{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
+  .cgcard{display:flex;align-items:flex-start;gap:9px;border:1px solid var(--line);border-radius:8px;padding:7px 9px;background:#fff}
+  .cgcard>input[type=checkbox]{margin-top:2px;flex:none}
+  .cgcard-body{flex:1;min-width:0}
+  .cgcard-name{font-size:12px;font-weight:600;color:var(--ink)}
+  .cgcard-n{font-weight:400;color:var(--muted)}
+  .cgcard-members{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.35;word-break:break-word}
+  .cgx{cursor:pointer;border:none;background:none;color:var(--muted);font-size:16px;line-height:1;padding:0 2px;align-self:center;flex:none}
   .cgx:hover{color:var(--bad)}
   .simrow{display:grid;grid-template-columns:1fr 90px;gap:8px;align-items:center;font-size:12px;margin-bottom:5px}
   .simrow input{width:100%;text-align:right}
@@ -77,7 +84,7 @@
   .stat div span{display:block}.stat .n{font-size:22px;font-weight:700}.stat .l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
   footer{max-width:1180px;margin:0 auto;padding:0 24px 40px;color:var(--muted);font-size:12px;line-height:1.6}
   @media(max-width:860px){.kpis{grid-template-columns:repeat(2,1fr)}.grid2,.grid2.wide{grid-template-columns:1fr}}
-  @media print{header .pill,.ctrls,.cgbuild,.exportbar,#banner{display:none!important}
+  @media print{header .pill,.ctrls,.cgbuilder,.exportbar,#banner{display:none!important}
     .panel{break-inside:avoid;border-color:#ccc}body{background:#fff}}
   .kpicap{font-size:12px;color:var(--muted);margin:2px 0 6px;letter-spacing:.2px}
   .kpicap b{color:var(--ink)}
@@ -144,15 +151,17 @@
     <div class="ctrls range"><span class="rlab">Range</span><select id="cmpFrom"></select><span class="rto">to</span><select id="cmpTo"></select></div>
     <p class="hint">Tick groups to overlay their spliced continuous series.</p>
     <div class="chk" id="cmpChk"></div>
-    <div class="cgbuild">
-      <select id="cgMembers" multiple size="4" aria-label="Subgroups to combine into a custom group"></select>
-      <div class="cgctl">
+    <div class="cgbuilder">
+      <div class="cgb-title">Build a custom group (group of groups)</div>
+      <div class="cgb-pick" id="cgMembers" role="group" aria-label="Select subgroups to combine"></div>
+      <div class="cgb-row">
         <input type="text" id="cgName" maxlength="40" placeholder="Name this group" aria-label="Custom group name">
         <button class="btn" id="cgAdd">Add group</button>
-        <button class="btn" id="cgReset">Reset</button>
+        <button class="btn" id="cgReset">Reset all</button>
+        <span class="cgb-count" id="cgCount">0 selected</span>
       </div>
+      <p class="hint" id="cgHint" style="margin:8px 0 0"></p>
     </div>
-    <p class="hint" id="cgHint"></p>
     <div class="cglist" id="cgList"></div>
     <div id="compare" class="chart"></div>
   </div>
