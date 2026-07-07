@@ -15,7 +15,10 @@ const toNum = v => { if(v===null||v===undefined||v==="") return null;
   const n=+(""+v).replace(/,/g,""); return isFinite(n)?n:null; };
 
 let STATE={tab1:[],tab2:[],measure:"index",core:"head",ctype:"line",base:"__spliced__",
-           cmpView:"index",catView:"index",heat:"yoy",grpView:"index",simView:"index",updated:"—"};
+           cmpView:"index",catView:"index",heat:"yoy",grpView:"index",simView:"index",
+           composites:[],updated:"—"};
+let cgSeq=1;
+const CG_HINT="Select subgroups (Ctrl/Cmd-click for several), name the set, and Add to plot a weighted composite using official CCPI weights. Session only \u2014 cleared on refresh.";
 const CH={};
 
 /* ---------- splice: identical to the verified Python reference ---------- */
@@ -221,6 +224,11 @@ function drawCompare(){
     data.forEach(d=>xset.add(d[0]));
     series.push({name:g,type:"line",showSymbol:false,smooth:true,sampling:"lttb",data});
   });
+  (STATE.composites||[]).filter(c=>c.sel).forEach(c=>{
+    const data=compositeMetricSeries(c.members,metric).filter(p=>inRange(p.key,from,to)).map(p=>[p.key,+p.v.toFixed(2)]);
+    data.forEach(d=>xset.add(d[0]));
+    series.push({name:c.name,type:"line",showSymbol:false,smooth:true,sampling:"lttb",lineStyle:{width:3},data});
+  });
   const xs=[...xset].sort(), keysSet=new Set(xs);
   if(series.length) series[0].markLine={symbol:"none",silent:true,
     lineStyle:{color:"#b0b8c4",type:"dashed"},label:{show:false},data:baseChangeMarks(keysSet)};
@@ -234,6 +242,90 @@ function drawCompare(){
   CH.compare.__name="Compare "+METRIC_LABEL(metric);
   CH.compare.__rows=xs.map(k=>wide[k]||{Month:k});
 }
+
+/* ---- custom "group of groups" composites (official-weighted, base-spliced) ---- */
+// {group:{base:{monthKey:index}}} + weights {group:{base:weight}}, built once
+function t2Lookup(){
+  if(window.__t2look) return window.__t2look;
+  const idx={}, wt={};
+  STATE.tab2.forEach(r=>{
+    if(r["Period Type"]!=="Monthly") return;
+    const g=r.Group, b=r["Base Year Used"]; if(g==null||b==null) return;
+    const iv=toNum(r["Index Number"]), wv=toNum(r["Weight (%)"]);
+    if(iv!=null){ (idx[g]=idx[g]||{}); (idx[g][b]=idx[g][b]||{})[ymKey(+r.Year,+r["Month No"])]=iv; }
+    if(wv!=null){ (wt[g]=wt[g]||{}); if(wt[g][b]==null) wt[g][b]=wv; }
+  });
+  return window.__t2look={idx,wt};
+}
+// weighted composite index per base (renormalised over members present that month), then spliced
+function compositeIndexSeries(members){
+  const {idx,wt}=t2Lookup(); const bases=new Set();
+  members.forEach(g=>{ if(idx[g]) Object.keys(idx[g]).forEach(b=>bases.add(b)); });
+  const pts=[];
+  bases.forEach(b=>{
+    const months=new Set();
+    members.forEach(g=>{ if(idx[g]&&idx[g][b]) Object.keys(idx[g][b]).forEach(k=>months.add(k)); });
+    months.forEach(k=>{
+      let num=0,wsum=0;
+      members.forEach(g=>{ const iv=idx[g]&&idx[g][b]?idx[g][b][k]:null, wv=wt[g]?wt[g][b]:null;
+        if(iv!=null&&wv!=null){ num+=wv*iv; wsum+=wv; } });
+      if(wsum>0){ const [y,m]=k.split("-").map(Number); pts.push({year:y,month:m,base:b,value:num/wsum}); }
+    });
+  });
+  return splice(pts).series;
+}
+// derive Index / Y-o-Y / M-o-M / YTD from the composite index (no published rate exists)
+function compositeMetricSeries(members,metric){
+  const s=compositeIndexSeries(members);
+  if(metric==="index") return s.map(p=>({key:p.key,v:p.val}));
+  const map={}; s.forEach(p=>{ map[p.key]=p.val; });
+  const out=[];
+  s.forEach(p=>{ const k=p.key; let v=null;
+    if(metric==="mom"){ const pk=stepBack(k,1); if(map[pk]!=null) v=(map[k]/map[pk]-1)*100; }
+    else if(metric==="yoy"){ const pk=stepBack(k,12); if(map[pk]!=null) v=(map[k]/map[pk]-1)*100; }
+    else { let a=0,b=0,ok=true;
+      for(let i=0;i<12&&ok;i++){ const vv=map[stepBack(k,i)]; if(vv==null)ok=false; else a+=vv; }
+      for(let i=12;i<24&&ok;i++){ const vv=map[stepBack(k,i)]; if(vv==null)ok=false; else b+=vv; }
+      if(ok&&b>0) v=((a/12)/(b/12)-1)*100; }
+    if(v!=null) out.push({key:k,v});
+  });
+  return out;
+}
+function fillCmpMembers(){
+  const sel=document.getElementById("cgMembers"); if(sel.dataset.filled) return;
+  groupList().forEach(g=>{ const o=document.createElement("option"); o.value=g; o.textContent=g; sel.appendChild(o); });
+  sel.dataset.filled="1";
+}
+function renderComposites(){
+  const box=document.getElementById("cgList"); box.textContent="";
+  if(!STATE.composites.length){ const em=document.createElement("span");
+    em.className="hint"; em.style.margin="0"; em.textContent="No custom groups yet."; box.appendChild(em); return; }
+  STATE.composites.forEach(c=>{
+    const item=document.createElement("span"); item.className="cgitem";
+    const cb=document.createElement("input"); cb.type="checkbox"; cb.checked=c.sel; cb.dataset.cid=c.id;
+    cb.setAttribute("aria-label","Show "+c.name+" on chart");
+    const nm=document.createElement("span"); nm.className="cgnm"; nm.textContent=c.name;
+    nm.title=c.name+" = "+c.members.join(", ");
+    const x=document.createElement("button"); x.type="button"; x.className="cgx"; x.dataset.del=c.id;
+    x.textContent="\u00d7"; x.title="Delete "+c.name; x.setAttribute("aria-label","Delete "+c.name);
+    item.appendChild(cb); item.appendChild(nm); item.appendChild(x); box.appendChild(item);
+  });
+}
+function addComposite(){
+  const selEl=document.getElementById("cgMembers");
+  const members=[...selEl.selectedOptions].map(o=>o.value);
+  const nameEl=document.getElementById("cgName"), hint=document.getElementById("cgHint");
+  let name=(nameEl.value||"").trim().replace(/\s+/g," ");
+  if(!members.length){ hint.textContent="Select at least one subgroup to combine."; return; }
+  if(!name){ hint.textContent="Give the group a name before adding."; return; }
+  const taken=new Set([...STATE.composites.map(c=>c.name.toLowerCase()),...groupList().map(g=>g.toLowerCase())]);
+  if(taken.has(name.toLowerCase())){ let n=2; const base=name; while(taken.has((base+" ("+n+")").toLowerCase())) n++; name=base+" ("+n+")"; }
+  STATE.composites.push({id:"cg"+(cgSeq++),name,members,sel:true});
+  nameEl.value=""; [...selEl.options].forEach(o=>{ o.selected=false; });
+  hint.textContent=CG_HINT; renderComposites(); drawCompare();
+}
+function deleteComposite(id){ STATE.composites=STATE.composites.filter(c=>c.id!==id); renderComposites(); drawCompare(); }
+function resetComposites(){ STATE.composites=[]; document.getElementById("cgHint").textContent=CG_HINT; renderComposites(); drawCompare(); }
 
 /* ------------------------------ heatmap ------------------------------ */
 function drawHeat(){
@@ -510,6 +602,13 @@ function wire(){
   document.getElementById("segType").onclick=e=>seg(e,"segType","t",v=>{STATE.ctype=v;drawTrend();});
   document.getElementById("baseSel").onchange=e=>{STATE.base=e.target.value;drawTrend();};
   document.getElementById("segCmp").onclick=e=>seg(e,"segCmp","v",v=>{STATE.cmpView=v;drawCompare();});
+  document.getElementById("cgAdd").onclick=addComposite;
+  document.getElementById("cgReset").onclick=resetComposites;
+  document.getElementById("cgList").addEventListener("change",e=>{
+    const t=e.target; if(t.matches('input[type=checkbox][data-cid]')){
+      const c=STATE.composites.find(x=>x.id===t.dataset.cid); if(c){ c.sel=t.checked; drawCompare(); } }});
+  document.getElementById("cgList").addEventListener("click",e=>{
+    const b=e.target.closest("button[data-del]"); if(b) deleteComposite(b.dataset.del); });
   document.getElementById("segHeat").onclick=e=>seg(e,"segHeat","h",v=>{STATE.heat=v;drawHeat();});
   document.getElementById("segCat").onclick=e=>seg(e,"segCat","v",v=>{STATE.catView=v;drawCats();});
   document.getElementById("segGrp").onclick=e=>seg(e,"segGrp","g",v=>{STATE.grpView=v;drawGroup();});
@@ -549,7 +648,8 @@ function boot(wb){
   STATE.tab1=rowsOf(wb,"CCPI Data"); STATE.tab2=rowsOf(wb,"CCPI Subgroup Breakdown");
   if(!STATE.tab1.length){showBanner("err","Workbook loaded but 'CCPI Data' is empty or renamed.");return;}
   buildMeta();
-  initCharts(); wire(); fillBaseSel(); fillCmp(); fillGroups(); fillRanges();
+  initCharts(); wire(); fillBaseSel(); fillCmp(); fillCmpMembers(); fillGroups(); fillRanges();
+  document.getElementById("cgHint").textContent=CG_HINT; renderComposites();
   renderKpis(); drawTrend(); drawCompare(); drawHeat(); drawDrivers(); buildSim();
   drawAnom(); drawCats(); drawGroup(); drawTable(); fillExport();
 }
