@@ -74,7 +74,7 @@
   .cgb-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
   .cgb-row input[type=text]{flex:1;min-width:150px}
   .cgb-count{font-size:11px;color:var(--muted);margin-left:auto;white-space:nowrap}
-  .cglist{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
+  .cglist{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:8px;margin-bottom:2px}
   .cgcard{display:flex;align-items:flex-start;gap:9px;border:1px solid var(--line);border-radius:8px;padding:7px 9px;background:#fff}
   .cgcard>input[type=checkbox]{margin-top:2px;flex:none}
   .cgcard-body{flex:1;min-width:0}
@@ -151,11 +151,8 @@
   </div>
 
   <div class="panel">
-    <div class="ctrls"><h2 style="margin:0">Compare groups</h2>
-      <div class="seg" id="segCmp" style="margin-left:auto"><button data-v="index" class="on">Index</button><button data-v="yoy">Y-o-Y</button><button data-v="mom">M-o-M</button><button data-v="ytd">YTD</button></div></div>
-    <div class="ctrls range"><span class="rlab">Range</span><select id="cmpFrom"></select><span class="rto">to</span><select id="cmpTo"></select></div>
-    <p class="hint">Tick groups to overlay their spliced continuous series.</p>
-    <div class="chk" id="cmpChk"></div>
+    <h2 style="margin:0 0 4px">Custom groups</h2>
+    <p class="hint">Bundle several subgroups into one named basket, weighted by official CCPI weights. Ticked baskets appear in Compare groups, the Inflation heatmap, and Inflation drivers. Session only — cleared on refresh.</p>
     <details class="cgwrap">
       <summary>Build a custom group (group of groups)</summary>
       <div class="cgbuilder">
@@ -170,6 +167,14 @@
       </div>
     </details>
     <div class="cglist" id="cgList"></div>
+  </div>
+
+  <div class="panel">
+    <div class="ctrls"><h2 style="margin:0">Compare groups</h2>
+      <div class="seg" id="segCmp" style="margin-left:auto"><button data-v="index" class="on">Index</button><button data-v="yoy">Y-o-Y</button><button data-v="mom">M-o-M</button><button data-v="ytd">YTD</button></div></div>
+    <div class="ctrls range"><span class="rlab">Range</span><select id="cmpFrom"></select><span class="rto">to</span><select id="cmpTo"></select></div>
+    <p class="hint">Tick groups to overlay their spliced continuous series. Custom groups you create appear here too.</p>
+    <div class="chk" id="cmpChk"></div>
     <div id="compare" class="chart"></div>
   </div>
 
