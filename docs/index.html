@@ -151,10 +151,10 @@
   </div>
 
   <div class="panel">
-    <h2 style="margin:0 0 4px">Custom groups</h2>
+    <h2 style="margin:0 0 4px">Composite groups</h2>
     <p class="hint">Bundle several subgroups into one named basket, weighted by official CCPI weights. Ticked baskets appear in Compare groups, the Inflation heatmap, and Inflation drivers. Session only — cleared on refresh.</p>
     <details class="cgwrap">
-      <summary>Build a custom group (group of groups)</summary>
+      <summary>Build a composite group</summary>
       <div class="cgbuilder">
         <div class="cgb-pick" id="cgMembers" role="group" aria-label="Select subgroups to combine"></div>
         <div class="cgb-row">
@@ -197,7 +197,7 @@
     <div class="panel">
       <div class="ctrls"><h2 style="margin:0">Scenario simulation</h2>
         <div class="seg" id="segSim" style="margin-left:auto"><button data-s="index" class="on">Index</button><button data-s="yoy">Y-o-Y</button><button data-s="mom">M-o-M</button><button data-s="ytd">YTD</button></div></div>
-      <p class="hint" id="simHint">Apply hypothetical % changes to this month's group indices; the headline is re-based on the published All Items index and expressed on the selected basis. Hypothetical, not a forecast.</p>
+      <p class="hint" id="simHint">Apply hypothetical changes to this month's group indices; the headline is re-based on the published All Items index and expressed on the selected basis. Hypothetical, not a forecast.</p>
       <div class="stat">
         <div><span class="n" id="simBase">—</span><span class="l" id="simBaseL">Baseline index</span></div>
         <div><span class="n" id="simNew">—</span><span class="l">Simulated</span></div>
@@ -210,7 +210,7 @@
 
   <div class="panel">
     <h2>Anomaly detection</h2>
-    <p class="hint">Robust flags on month-on-month moves of the spliced series (median ± MAD), plus missing-month gaps. Flags for review, not corrections.</p>
+    <p class="hint">Robust flags on month-on-month moves of the spliced series (median ± MAD), plus missing-month gaps. Flags for review.</p>
     <div style="max-height:220px;overflow:auto"><table id="anom">
       <thead><tr><th>Month</th><th>MoM %</th><th>Robust z</th><th>Flag</th></tr></thead><tbody></tbody></table></div>
   </div>
