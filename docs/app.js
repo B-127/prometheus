@@ -16,6 +16,7 @@ const toNum = v => { if(v===null||v===undefined||v==="") return null;
 
 let STATE={tab1:[],tab2:[],measure:"index",core:"head",ctype:"line",base:"__spliced__",
            cmpView:"index",catView:"index",heat:"yoy",grpView:"index",simView:"index",
+           drvMode:"month",drvMonth:null,drvYear:null,
            composites:[],updated:"—"};
 let cgSeq=1;
 const CG_HINT="Tick subgroups above, name the set, and press Add. Composites use official CCPI weights and are session-only \u2014 cleared on refresh.";
@@ -389,21 +390,63 @@ function components(){
   const wsum=comp.reduce((s,r)=>s+toNum(r["Weight (%)"]),0)||1;
   return {comp,wsum};
 }
+/* rows for one month, collapsed to the newest base present that month */
+function t2MonthRows(key){
+  const rows=STATE.tab2.filter(r=>r["Period Type"]==="Monthly"&&ymKey(+r.Year,+r["Month No"])===key);
+  if(!rows.length) return [];
+  const bases=[...new Set(rows.map(r=>r["Base Year Used"]))].sort((a,b)=>BASE_ORDER.indexOf(a)-BASE_ORDER.indexOf(b));
+  const nb=bases[bases.length-1];
+  return rows.filter(r=>r["Base Year Used"]===nb);
+}
+/* months whose winning base actually carries component Y-o-Y (so drivers are computable) */
+function driverMonths(){
+  const keys=[...new Set(STATE.tab2.filter(r=>r["Period Type"]==="Monthly").map(r=>ymKey(+r.Year,+r["Month No"])))];
+  return keys.filter(k=>t2MonthRows(k).some(r=>!AGG.has(r.Group)&&toNum(r["Year-on-Year Inflation (%)"])!=null)).sort();
+}
+/* per-group contributions + headline for one month */
+function monthContribs(key){
+  const rows=t2MonthRows(key);
+  const comp=rows.filter(r=>!AGG.has(r.Group)&&toNum(r["Weight (%)"])!=null&&toNum(r["Year-on-Year Inflation (%)"])!=null);
+  const wsum=comp.reduce((s,r)=>s+toNum(r["Weight (%)"]),0)||1;
+  const base=comp.map(r=>({name:r.Group,c:(toNum(r["Weight (%)"])/wsum)*toNum(r["Year-on-Year Inflation (%)"])}));
+  const a=rows.find(r=>r.Group==="All Items");
+  return {base,head:a?toNum(a["Year-on-Year Inflation (%)"]):null};
+}
+/* selected period -> {base:[{name,c}], head, label} */
+function driverBase(){
+  if(STATE.drvMode==="year"){
+    const y=STATE.drvYear, months=driverMonths().filter(k=>k.slice(0,4)===y);
+    const acc={}; let hs=0,hn=0;
+    months.forEach(k=>{ const {base,head}=monthContribs(k);
+      base.forEach(d=>{ acc[d.name]=(acc[d.name]||0)+d.c; });
+      if(head!=null){ hs+=head; hn++; } });
+    const n=months.length||1;
+    const base=Object.keys(acc).map(name=>({name,c:acc[name]/n}));   // mean of monthly contributions
+    return {base,head:hn?hs/hn:null,label:y+" (annual avg)",months:months.length};
+  }
+  const {base,head}=monthContribs(STATE.drvMonth);
+  return {base,head,label:STATE.drvMonth,months:1};
+}
+function fillDrivers(){
+  const months=driverMonths(); if(!months.length) return;
+  const years=[...new Set(months.map(k=>k.slice(0,4)))].sort();
+  const mSel=document.getElementById("drvMonth"), ySel=document.getElementById("drvYear");
+  months.slice().reverse().forEach(k=>{const o=document.createElement("option");o.value=k;o.textContent=k;mSel.appendChild(o);});
+  years.slice().reverse().forEach(yy=>{const o=document.createElement("option");o.value=yy;o.textContent=yy;ySel.appendChild(o);});
+  STATE.drvMonth=months[months.length-1]; STATE.drvYear=years[years.length-1];
+  mSel.value=STATE.drvMonth; ySel.value=STATE.drvYear;
+}
 function drawDrivers(){
-  const {comp,wsum}=components();
-  const base=comp.map(r=>({name:r.Group,w:toNum(r["Weight (%)"])/wsum,
-      yoy:toNum(r["Year-on-Year Inflation (%)"])})).filter(d=>d.yoy!=null)
-    .map(d=>({name:d.name,c:d.w*d.yoy}));
+  const {base,head,label,months}=driverBase();
   const sum=base.reduce((s,d)=>s+d.c,0);                 // component-only sum (vs headline)
   const cmap=Object.fromEntries(base.map(d=>[d.name,d.c]));
   const comps=(STATE.composites||[]).filter(c=>c.sel);
   const compSet=new Set(comps.map(c=>c.name));
   const compEntries=comps.map(c=>({name:c.name,c:c.members.reduce((s,m)=>s+(cmap[m]||0),0)}));
   const arr=base.concat(compEntries).sort((a,b)=>a.c-b.c);   // a basket's contribution = sum of its members'
-  const allrow=latestT2().rows.find(r=>r.Group==="All Items");
-  const head=allrow?toNum(allrow["Year-on-Year Inflation (%)"]):null;
+  const per=STATE.drvMode==="year"?`${label}${months?` · ${months} mo`:""}`:label;
   document.getElementById("drvHint").textContent=
-    `Approx contribution = (weight ÷ Σweight) × Y-o-Y. Sum ≈ ${sum.toFixed(2)}% vs headline ${head==null?"—":head.toFixed(1)+"%"}.`;
+    `${per} · contribution = (weight ÷ Σweight) × Y-o-Y. Sum ≈ ${sum.toFixed(2)}% vs headline ${head==null?"—":head.toFixed(1)+"%"}.`;
   CH.drivers.setOption({grid:{left:8,right:26,top:8,bottom:8,containLabel:true},
     tooltip:{trigger:"axis",axisPointer:{type:"shadow"},valueFormatter:v=>v+" pp"},
     xAxis:{type:"value",axisLabel:{fontSize:10,color:"#7a869a"},splitLine:{lineStyle:{color:"#eef2f7"}}},
@@ -411,7 +454,7 @@ function drawDrivers(){
       formatter:v=>compSet.has(v)?"\u25c6 "+v:v}},
     series:[{type:"bar",data:arr.map(d=>+d.c.toFixed(3)),barWidth:"62%",
       itemStyle:{color:p=>p.value<0?"#1a8a55":"#de4940",borderRadius:[0,4,4,0]}}]},true);
-  CH.drivers.__name="Inflation drivers";
+  CH.drivers.__name="Inflation drivers "+label;
   CH.drivers.__rows=arr.map(d=>({Group:d.name,"Contribution (pp)":+d.c.toFixed(3)}));
 }
 
@@ -596,7 +639,7 @@ const EXPORTS={
   group:{label:"Sub-group trend",rangeIds:["grpFrom","grpTo"],months:()=>META.months},
   heat:{label:"Inflation heatmap",rangeIds:["heatFrom","heatTo"],months:()=>META.heatMonths},
   cats:{label:"Category breakdown (latest month)",rangeIds:null},
-  drivers:{label:"Inflation drivers (latest month)",rangeIds:null},
+  drivers:{label:"Inflation drivers",rangeIds:null},
 };
 const EXPORT_DRAW={trend:drawTrend,compare:drawCompare,group:drawGroup,heat:drawHeat,cats:drawCats,drivers:drawDrivers};
 function fillOpts(selEl,months,val){ selEl.textContent="";
@@ -651,6 +694,11 @@ function wire(){
   document.getElementById("segCat").onclick=e=>seg(e,"segCat","v",v=>{STATE.catView=v;drawCats();});
   document.getElementById("segGrp").onclick=e=>seg(e,"segGrp","g",v=>{STATE.grpView=v;drawGroup();});
   document.getElementById("segSim").onclick=e=>seg(e,"segSim","s",v=>{STATE.simView=v;runSim();});
+  document.getElementById("segDrv").onclick=e=>seg(e,"segDrv","d",v=>{STATE.drvMode=v;
+    document.getElementById("drvMonth").style.display=v==="month"?"":"none";
+    document.getElementById("drvYear").style.display=v==="year"?"":"none"; drawDrivers();});
+  document.getElementById("drvMonth").onchange=e=>{STATE.drvMonth=e.target.value;drawDrivers();};
+  document.getElementById("drvYear").onchange=e=>{STATE.drvYear=e.target.value;drawDrivers();};
   document.getElementById("groupSel").onchange=drawGroup;
   ["trendFrom","trendTo"].forEach(id=>document.getElementById(id).onchange=drawTrend);
   ["cmpFrom","cmpTo"].forEach(id=>document.getElementById(id).onchange=drawCompare);
@@ -686,7 +734,7 @@ function boot(wb){
   STATE.tab1=rowsOf(wb,"CCPI Data"); STATE.tab2=rowsOf(wb,"CCPI Subgroup Breakdown");
   if(!STATE.tab1.length){showBanner("err","Workbook loaded but 'CCPI Data' is empty or renamed.");return;}
   buildMeta();
-  initCharts(); wire(); fillBaseSel(); fillCmp(); fillCmpMembers(); fillGroups(); fillRanges();
+  initCharts(); wire(); fillBaseSel(); fillCmp(); fillCmpMembers(); fillGroups(); fillRanges(); fillDrivers();
   document.getElementById("cgHint").textContent=CG_HINT; renderComposites();
   renderKpis(); drawTrend(); drawCompare(); drawHeat(); drawDrivers(); buildSim();
   drawAnom(); drawCats(); drawGroup(); drawTable(); fillExport();
