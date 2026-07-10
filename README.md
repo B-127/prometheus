@@ -80,27 +80,3 @@ python tests/test_validate_append.py
 ```
 Covers valid/invalid validation, formula-injection neutralisation, a safe append on a
 **copy** of the master, and a numeric check of the base-year splice on the real data.
-
----
-
-## File-change map (vs the previous `sl-inflation-mvp` repo)
-
-This is effectively a **new repo** — the old PDF-collection pipeline is removed per your
-instruction to drop the data-collection work.
-
-**Add (new):**
-- `docs/index.html` — the new dashboard (reads the workbook, splices, flags overlaps)
-- `docs/.nojekyll`
-- `docs/data/ccpi_combined_single_tab.xlsx` — your workbook (source of truth)
-- `tools/schema.py`, `tools/validate.py`, `tools/append_data.py` — the append feature
-- `tests/test_validate_append.py`
-- `requirements.txt`, `.gitignore`, `README.md`
-
-**Remove (no longer used):**
-- `src/` (extract.py, download.py, splice.py, store.py, pipeline.py, validate.py, schema.py, extract_llm.py)
-- `scripts/run_monthly.py`, `scripts/backfill.py`, `scripts/build_web_json.py`
-- `.github/workflows/refresh.yml` — there is no automated scraping anymore
-- the old `data/` outputs (`inflation_ccpi.xlsx`, CSV mirrors) and old `docs/` dashboard
-
-**Keep (conceptually carried over, rewritten here):** the base-year splice idea and the
-validation-first mindset — both reimplemented around your actual workbook.
